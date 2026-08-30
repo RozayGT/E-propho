@@ -78,7 +78,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 }
 .wordmark{font-size:15px;font-weight:650;letter-spacing:-.02em}
 .wordmark span{color:var(--accent)}
-.appbar .lcd{margin-left:auto;font-size:9px}
+.appbar .lcd{margin-left:auto;font-size:9px;margin-right:6px}
 
 .wrap{max-width:720px;margin:0 auto;padding:24px 18px 190px}
 
@@ -281,7 +281,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border:1px solid var(
 
 
 /* ---------------- fiche, prix, annonce ---------------- */
-.gear{margin-left:8px;width:44px;height:44px;margin-top:-6px;margin-bottom:-6px;display:grid;place-items:center;
+.gear{margin-left:2px;width:44px;height:44px;margin-top:-6px;margin-bottom:-6px;display:grid;place-items:center;
   color:var(--ink-2);flex:none;align-self:center;position:relative;z-index:1}
 .gear svg{width:17px;height:17px}
 .appbar .lcd{margin-left:auto}
@@ -330,6 +330,7 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
 /* ---------------- feuille de réglages ---------------- */
 .sheetwrap{position:fixed;inset:0;z-index:80;background:rgba(16,18,21,.42);
   display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)}
+.sheetbox::before{content:"";display:block;width:38px;height:4px;border-radius:99px;background:var(--line);margin:0 auto 14px}
 .sheetbox{width:100%;max-width:560px;background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;
   padding:18px 18px calc(env(safe-area-inset-bottom) + 18px);max-height:90vh;overflow:auto}
 .sheethead{display:flex;align-items:center;margin-bottom:8px}
@@ -395,6 +396,9 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
 <header class="appbar">
   <div class="wordmark">Propho<span>.</span></div>
   <div class="lcd" id="statusLine">PRÊT · 0 VUE</div>
+  <button id="btnHome" class="gear" aria-label="Nouvelle annonce" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.4 12 3.6l8.5 6.8V19a1.6 1.6 0 0 1-1.6 1.6H5.1A1.6 1.6 0 0 1 3.5 19Z"/><path d="M9.6 20.6v-6.4h4.8v6.4"/></svg>
+  </button>
   <button id="btnHelp" class="gear" aria-label="Comment ça marche">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9.4 9.3a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.3-2.6 3.9"/><path d="M12 17.2v.1"/></svg>
   </button>
@@ -635,8 +639,9 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
     <div class="modelrow">
       <select id="sheetModel" class="fld"></select>
       <button class="btn ghost" id="sheetDetect">Détecter</button>
+      <button class="btn ghost" id="sheetTest">Tester</button>
     </div>
-    <p class="sheettext small">La liste vient de votre clé. L’app choisit un modèle Flash récent, et redétecte toute seule si Google le renomme.</p>
+    <p class="sheettext small">La liste vient de votre clé. « Tester » vous dit si le modèle répond et en combien de temps. En cas de saturation, l’app essaie automatiquement le suivant.</p>
     <p class="sheettext small warn">Sur l’offre gratuite, Google peut utiliser les photos envoyées pour améliorer ses modèles, et des relecteurs humains peuvent les voir. Activer la facturation supprime cette clause.</p>
     <div class="sheetact">
       <button class="btn ghost" id="sheetForget">Supprimer la clé</button>
@@ -1388,6 +1393,7 @@ function updateStatus() {
   els.sheetCount.textContent = `${n} / ${MAX_PHOTOS} max`;
   $('#btnExport').textContent = n > 1 ? `Exporter les ${n} photos` : 'Exporter la photo';
   els.actionbar.hidden = n === 0;
+  const home = $('#btnHome'); if (home) home.hidden = n === 0;
   els.stageImport.hidden = n > 0;
   els.stageWork.hidden = n === 0;
 }
@@ -2043,7 +2049,7 @@ function rankModel(n) {
   if (/flash/.test(n) && !/lite/.test(n)) s += 6;
   else if (/lite/.test(n)) s += 4;
   else if (/pro/.test(n)) s += 1;          // quota gratuit trop serré sur Pro
-  if (/preview|exp\b/.test(n)) s -= 3;
+  if (/preview|exp\b/.test(n)) s -= 14;   // les aperçus saturent, ils passent après
   if (/\d{6,}$/.test(n)) s -= 1;           // versions datées figées
   if (/latest$/.test(n)) s += 1;
   return s;
@@ -2053,15 +2059,22 @@ function bestModel(list) {
   return list.slice().sort((a, b) => rankModel(b) - rankModel(a))[0] || '';
 }
 
-async function resolveModel(key, force) {
-  const saved = lsGet(LS_MODEL);
-  if (saved && !force) return saved;
-  const list = await fetchModels(key);
-  const pick = bestModel(list);
-  if (!pick) throw new Error('Aucun modèle compatible sur cette clé.');
-  lsSet(LS_MODEL, pick);
-  return pick;
+const LS_MODELS = 'propho.gemini.models';
+
+/** Modèles classés du meilleur au moins bon, le préféré en tête. */
+async function modelCandidates(key, force) {
+  let list = [];
+  try { list = JSON.parse(lsGet(LS_MODELS) || '[]'); } catch (e) { list = []; }
+  if (!list.length || force) {
+    list = (await fetchModels(key)).sort((a, b) => rankModel(b) - rankModel(a));
+    if (!list.length) throw new Error('Aucun modèle compatible sur cette clé.');
+    lsSet(LS_MODELS, JSON.stringify(list));
+  }
+  const pref = lsGet(LS_MODEL);
+  return pref ? [pref, ...list.filter(n => n !== pref)] : list;
 }
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 const listing = {
   cat: 'pull', type: '', brand: '', tier: 'milieu', size: '', mat: '',
@@ -2175,24 +2188,40 @@ async function askGemini() {
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
     );
 
-    let model = await resolveModel(key, false);
-    let res = await call(model);
+    let candidates = await modelCandidates(key, false);
+    let res = null, model = null, refreshed = false;
 
-    // 404 : le modèle mémorisé n'existe plus. Google en renomme régulièrement,
-    // on redemande la liste à la clé et on réessaie une fois.
-    if (res.status === 404) {
-      btn.textContent = 'Recherche du modèle…';
-      model = await resolveModel(key, true);
-      res = await call(model);
+    for (let ci = 0; ci < Math.min(4, candidates.length); ci++) {
+      model = candidates[ci];
+      btn.textContent = ci === 0 ? 'Analyse…' : 'Autre modèle…';
+      let r = await call(model);
+
+      // 503 / 500 : saturation côté Google. Deux reprises, puis on change de modèle
+      // plutôt que d'insister sur celui qui est débordé.
+      for (let n = 1; n <= 2 && (r.status === 503 || r.status === 500); n++) {
+        btn.textContent = `Serveur occupé, reprise ${n}/2…`;
+        await sleep(n * 1800);
+        r = await call(model);
+      }
+
+      // 404 : le modèle n'existe plus. On redemande la liste une fois, puis on continue.
+      if (r.status === 404) {
+        if (!refreshed) {
+          refreshed = true;
+          btn.textContent = 'Mise à jour des modèles…';
+          candidates = await modelCandidates(key, true);
+          ci = -1;
+        }
+        continue;
+      }
+
+      if (r.ok) { res = r; break; }
+      if (r.status === 503 || r.status === 500) continue;   // au suivant
+      res = r; break;                                        // 400/403/429 : changer de modèle n'aidera pas
     }
 
-    // 503 et 500 : modèle saturé côté Google, rien à voir avec la requête.
-    // Trois reprises espacées suffisent presque toujours.
-    for (let n = 1; n <= 3 && (res.status === 503 || res.status === 500); n++) {
-      btn.textContent = `Serveur occupé, reprise ${n}/3…`;
-      await new Promise(r => setTimeout(r, n * 1800));
-      res = await call(model);
-    }
+    if (!res) throw new Error('Tous les modèles disponibles sont saturés. Réessayez dans quelques minutes.');
+    if (res.ok) lsSet(LS_MODEL, model);
 
     if (!res.ok) {
       const err = await res.text().catch(() => '');
@@ -2255,10 +2284,39 @@ async function detectModels(silent) {
   btn.disabled = true; btn.textContent = '…';
   try {
     const list = await fetchModels(key);
+    lsSet(LS_MODELS, JSON.stringify(list.slice().sort((a, b) => rankModel(b) - rankModel(a))));
     setModelOptions(list, lsGet(LS_MODEL) || bestModel(list));
     if (!silent) toast(`${list.length} modèle${list.length > 1 ? 's' : ''} disponible${list.length > 1 ? 's' : ''}.`);
   } catch (e) {
     if (!silent) toast(e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+
+async function testModel() {
+  const key = $('#sheetKey').value.trim() || lsGet(LS_KEY);
+  const model = $('#sheetModel').value;
+  if (!key) { toast('Renseignez d’abord la clé.'); return; }
+  if (!model) { toast('Détectez d’abord les modèles.'); return; }
+  const btn = $('#sheetTest');
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  const t0 = Date.now();
+  try {
+    const r = await fetch(`${API_ROOT}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: 'Réponds exactement : OK' }] }] })
+    });
+    const ms = Date.now() - t0;
+    if (r.ok) { lsSet(LS_MODEL, model); toast(`${model} répond en ${ms} ms.`); }
+    else if (r.status === 503 || r.status === 500) toast(`${model} est saturé. Choisissez-en un autre dans la liste.`);
+    else if (r.status === 404) toast(`${model} n’existe plus. Touchez « Détecter ».`);
+    else if (r.status === 429) toast('Quota atteint sur cette clé.');
+    else if (r.status === 400 || r.status === 403) toast('Clé refusée ou API non activée.');
+    else toast(`Erreur ${r.status}.`);
+  } catch (e) {
+    toast('Aucune réponse. Vérifiez la connexion.');
   } finally {
     btn.disabled = false; btn.textContent = label;
   }
@@ -2320,6 +2378,7 @@ function initListing() {
     updateAIButton();
   });
   $('#sheetDetect').addEventListener('click', () => detectModels(false));
+  $('#sheetTest').addEventListener('click', testModel);
   $('#sheetForget').addEventListener('click', () => {
     $('#sheetKey').value = '';
     lsSet(LS_KEY, ''); closeSettings(); toast('Clé supprimée de cet appareil.'); updateAIButton();
@@ -2413,6 +2472,30 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(false); });
 window.addEventListener('online', () => checkUpdate(true));
 setInterval(() => checkUpdate(false), UPDATE_INTERVAL);
+
+/* --- retour à l'accueil --- */
+function resetAll() {
+  state.assets = [];
+  state.selected = -1;
+  Object.assign(listing, {
+    cat: 'pull', type: '', brand: '', tier: 'milieu', size: '', mat: '',
+    cond: 'tres_bon', retail: '', meas: '', details: '', colors: []
+  });
+  writeFields();
+  $('#aiNote').hidden = true;
+  refreshColors();
+  renderListing();
+  renderSheet();
+  updateStatus();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+$('#btnHome').addEventListener('click', () => {
+  if (!state.assets.length) return;
+  if (!confirm('Repartir de zéro ? Les photos et la fiche en cours seront effacées.')) return;
+  resetAll();
+  toast('Nouvelle annonce');
+});
 
 /* --- tutoriel --- */
 const LS_SEEN = 'propho.help.seen';
