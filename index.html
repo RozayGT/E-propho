@@ -480,7 +480,7 @@ body.is-empty .wrap{padding-bottom:28px}
       </div>
       <div class="row">
         <span class="lcd">Luminosité</span>
-        <div class="ctl"><input type="range" id="rgLevels" min="0" max="140" value="45"><span class="val" id="vLevels">45</span></div>
+        <div class="ctl"><input type="range" id="rgLevels" min="0" max="140" value="0"><span class="val" id="vLevels">0</span></div>
       </div>
     </div>
 
@@ -501,7 +501,7 @@ body.is-empty .wrap{padding-bottom:28px}
         </div>
         <div class="row">
           <span class="lcd">Contraste</span>
-          <div class="ctl"><input type="range" id="rgContrast" min="0" max="100" value="6"><span class="val" id="vContrast">6</span></div>
+          <div class="ctl"><input type="range" id="rgContrast" min="0" max="100" value="0"><span class="val" id="vContrast">0</span></div>
         </div>
         <div class="row">
           <span class="lcd">Saturation</span>
@@ -725,10 +725,10 @@ const BACKGROUNDS = {
 
 const PRESETS = {
   // Par défaut : on détoure et on recadre, on ne réinvente pas la couleur.
-  fidele:    { bg:'white',    ratio:'3:4', shadow:true,  margin:9,  levels:45, wb:0,  contrast:6,  vibrance:0,  sharpen:34, removeBg:true },
-  catalogue: { bg:'white',    ratio:'3:4', shadow:true,  margin:9,  levels:78, wb:45, contrast:16, vibrance:12, sharpen:42, removeBg:true },
-  doux:      { bg:'sweep',    ratio:'4:5', shadow:true,  margin:13, levels:66, wb:35, contrast:11, vibrance:16, sharpen:34, removeBg:true },
-  naturel:   { bg:'none',     ratio:'3:4', shadow:false, margin:4,  levels:55, wb:20, contrast:8,  vibrance:6,  sharpen:30, removeBg:false }
+  fidele:    { bg:'white',    ratio:'3:4', shadow:true,  margin:9,  levels:0,  wb:0,  contrast:0,  vibrance:0,  sharpen:34, removeBg:true },
+  catalogue: { bg:'white',    ratio:'3:4', shadow:true,  margin:9,  levels:70, wb:45, contrast:14, vibrance:12, sharpen:42, removeBg:true },
+  doux:      { bg:'sweep',    ratio:'4:5', shadow:true,  margin:13, levels:55, wb:35, contrast:9,  vibrance:14, sharpen:34, removeBg:true },
+  naturel:   { bg:'none',     ratio:'3:4', shadow:false, margin:4,  levels:40, wb:20, contrast:6,  vibrance:4,  sharpen:30, removeBg:false }
 };
 
 /* ---------- état ---------- */
@@ -1097,13 +1097,17 @@ function analyze(buf, alpha, ref, bgFrac) {
   }
   if (!count) { for (let i = 0; i < n; i += 2) { const p = i << 2; const y = 0.299 * data[p] + 0.587 * data[p+1] + 0.114 * data[p+2]; hist[y|0]++; sumY += y; count++; sr += data[p]; sg += data[p+1]; sb += data[p+2]; } }
 
-  // niveaux : percentiles 0,8 % / 99,2 %
-  let acc = 0, lo = 0, hi = 255;
-  const loT = count * 0.008, hiT = count * 0.992;
-  for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= loT) { lo = v; break; } }
-  acc = 0;
-  for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= hiT) { hi = v; break; } }
-  if (hi - lo < 24) { lo = Math.max(0, lo - 12); hi = Math.min(255, hi + 12); }
+  // Exposition, pas étirement d'histogramme. Étirer supposerait qu'un vêtement
+  // doit occuper toute la plage tonale : une robe verte deviendrait alors plus
+  // sombre parce qu'un imprimé blanc tire son maximum vers le haut. On corrige
+  // seulement la médiane, et de moitié, pour garder la teinte réelle.
+  let acc = 0, medY = 128;
+  for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= count * 0.5) { medY = v; break; } }
+  // On ne remonte que ce qui est franchement sous-exposé, et on n'assombrit
+  // jamais : une chemise blanche doit rester blanche, une robe noire noire.
+  // Au-dessus du seuil, l'app ne touche à rien — c'est le sens de « fidèle ».
+  const desired = medY + (112 - medY) * 0.5;
+  const expGain = medY < 95 ? clamp(desired / Math.max(1, medY), 1, 1.45) : 1;
 
   // Balance des blancs. Le fond ne sert de référence que s'il est vraiment
   // neutre : sur une couette beige ou un parquet, le « corriger » déplacerait
@@ -1133,7 +1137,7 @@ function analyze(buf, alpha, ref, bgFrac) {
   }
   const kelvin = Math.round(5200 * (gains.b / gains.r));
   return {
-    lo, hi, gains, wbSource,
+    medY, expGain, gains, wbSource,
     meanY: sumY / count,
     sharp: lc ? Math.sqrt(lap / lc) : 0,
     kelvin: clamp(kelvin, 2200, 9500)
@@ -1150,9 +1154,7 @@ function applyTone(buf, alpha, an, s, refColor) {
 
   const wb = s.wb / 100, lv = s.levels / 100;
   const gr = 1 + (an.gains.r - 1) * wb, gg = 1 + (an.gains.g - 1) * wb, gb = 1 + (an.gains.b - 1) * wb;
-  const gain = clamp((250 - 6) / Math.max(1, an.hi - an.lo), 0.9, 2.3);
-  const G = 1 + (gain - 1) * lv;
-  const L = (6 - an.lo * gain) * lv;
+  const G = 1 + (an.expGain - 1) * lv;
   const kC = (s.contrast / 100) * 0.62;
   const kV = (s.vibrance / 100) * 0.85;
 
@@ -1176,12 +1178,15 @@ function applyTone(buf, alpha, an, s, refColor) {
 
     r *= gr; g *= gg; b *= gb;
 
-    // niveaux, appliqués sur la luminance pour ne pas déplacer les teintes
+    // Exposition : simple facteur sur la luminance, jamais de retrait constant.
+    // Un genou doux près du blanc évite de brûler un imprimé clair.
     let y = 0.299 * r + 0.587 * g + 0.114 * b;
-    if (y > 0.5) {
-      const ratio = clamp((y * G + L) / y, 0, 4);
+    if (G !== 1 && y > 0.5) {
+      let yn = y * G;
+      if (yn > 232) yn = 232 + (yn - 232) * 0.3;
+      const ratio = clamp(yn / y, 0, 3);
       r *= ratio; g *= ratio; b *= ratio;
-      y = y * G + L;
+      y = yn;
     }
 
     // contraste : mélange vers une courbe en S monotone
@@ -1551,7 +1556,11 @@ function drawReadout(a) {
   const bits = [
     `Fond <b>${s.removeBg && s.bg !== 'none' ? 'remplacé' : 'conservé'}</b>`,
     `WB <b>${s.wb > 0 && a.an.wbSource !== 'aucune' ? a.an.kelvin + 'K' : 'non touchée'}</b>`,
-    `Niveaux <b>${a.an.lo}–${a.an.hi}</b>`,
+    `Lumière <b>${(() => {
+      const g = 1 + (a.an.expGain - 1) * (s.levels / 100);
+      const pct = Math.round((g - 1) * 100);
+      return pct === 0 ? 'non touchée' : (pct > 0 ? '+' : '') + pct + ' %';
+    })()}</b>`,
     `Sujet <b>${Math.round((1 - a.bgFrac) * 100)}%</b>`,
     `<b>${W}×${H}</b>`
   ];
@@ -1626,7 +1635,7 @@ $('#tgShadow').addEventListener('click', () => {
 });
 
 const PRESET_HINT = {
-  fidele:    'Détoure et recadre, sans toucher aux teintes. Le plus sûr pour vendre : l’acheteur reçoit la couleur qu’il a vue.',
+  fidele:    'Détoure et recadre, sans rien changer aux couleurs ni à la lumière. Le plus sûr pour vendre.',
   catalogue: 'Éclaircit et renforce un peu les couleurs. Pour une photo terne ou prise dans une pièce sombre.',
   doux:      'Fond dégradé et cadrage plus aéré. Rendu magazine, un peu moins fidèle.',
   naturel:   'Garde votre fond d’origine, corrige seulement la lumière.'
