@@ -206,8 +206,8 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .seg button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(16,18,21,.1)}
 
 /* pastilles de fond */
-.swatches{display:flex;gap:8px}
-.sw{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);position:relative}
+.swatches{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.sw{width:29px;height:29px;border-radius:50%;border:1px solid var(--line);position:relative}
 .sw[aria-pressed="true"]{box-shadow:0 0 0 2px var(--accent)}
 .sw.none{background:repeating-conic-gradient(#DDD 0 25%,#fff 0 50%) 50%/10px 10px}
 
@@ -359,6 +359,22 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
 .steps span{display:block;font-size:13px;line-height:1.55;color:var(--ink-2)}
 .steps em{font-style:normal;color:var(--ink);font-weight:560}
 
+.sheetbox.tall{max-height:92vh}
+.archrow{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line-2);cursor:pointer}
+.archrow img{width:46px;height:58px;object-fit:cover;border-radius:var(--r-sm);border:1px solid var(--line);flex:none;background:#fff}
+.archtxt{flex:1;min-width:0}
+.archtxt b{display:block;font-size:14px;font-weight:580;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.archtxt .lcd{font-size:9.5px}
+.archrow .chev{color:var(--ink-3);font-size:19px;line-height:1}
+.archdet{padding:12px 0 18px;border-bottom:1px solid var(--line-2)}
+.archshots{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px}
+.archshots img{height:150px;width:auto;border-radius:var(--r-sm);border:1px solid var(--line);flex:none;background:#fff}
+.archblock{margin-bottom:10px}
+.archblock p,.archblock pre{margin:4px 0 0;font-family:var(--sans);font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+.archacts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.archacts .btn{padding:9px 13px;font-size:12.5px}
+.archacts .danger{color:var(--warn);border-color:#E4C8AE}
+
 .hint{font-size:12px;color:var(--ink-3);margin:14px 2px 0;line-height:1.6}
 .hint b{color:var(--ink-2);font-weight:560}
 
@@ -393,6 +409,9 @@ body.is-empty .wrap{padding-bottom:28px}
   <div class="lcd" id="statusLine">PRÊT · 0 VUE</div>
   <button id="btnHome" class="gear" aria-label="Nouvelle annonce" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.4 12 3.6l8.5 6.8V19a1.6 1.6 0 0 1-1.6 1.6H5.1A1.6 1.6 0 0 1 3.5 19Z"/><path d="M9.6 20.6v-6.4h4.8v6.4"/></svg>
+  </button>
+  <button id="btnArchive" class="gear" aria-label="Mes annonces">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 7.6h17.2v11.2a1.6 1.6 0 0 1-1.6 1.6H5a1.6 1.6 0 0 1-1.6-1.6Z"/><path d="M2.6 4.4h18.8v3.2H2.6z"/><path d="M9.8 11.6h4.4"/></svg>
   </button>
   <button id="btnHelp" class="gear" aria-label="Comment ça marche">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9.4 9.3a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.3-2.6 3.9"/><path d="M12 17.2v.1"/></svg>
@@ -456,13 +475,17 @@ body.is-empty .wrap{padding-bottom:28px}
     <p class="hint" id="presetHint"></p>
 
     <div class="panel" style="margin-top:12px">
-      <div class="row">
-        <span class="lcd">Fond</span>
+      <div class="row" style="align-items:flex-start">
+        <span class="lcd" style="padding-top:6px">Fond</span>
         <div class="ctl swatches" id="swatches">
           <button class="sw" data-bg="white"    style="background:#fff"                                 aria-pressed="true"  aria-label="Blanc"></button>
           <button class="sw" data-bg="sweep"    style="background:linear-gradient(180deg,#fff,#E6E4DF)" aria-pressed="false" aria-label="Dégradé studio"></button>
-          <button class="sw" data-bg="offwhite" style="background:#F5F3EF"                              aria-pressed="false" aria-label="Blanc cassé"></button>
           <button class="sw" data-bg="grey"     style="background:#E9E9E7"                              aria-pressed="false" aria-label="Gris"></button>
+          <button class="sw" data-bg="wood"     data-tex="wood"                                         aria-pressed="false" aria-label="Bois clair"></button>
+          <button class="sw" data-bg="linen"    data-tex="linen"                                        aria-pressed="false" aria-label="Lin beige"></button>
+          <button class="sw" data-bg="concrete" data-tex="concrete"                                     aria-pressed="false" aria-label="Béton clair"></button>
+          <button class="sw" data-bg="blush"    style="background:#F0DEDA"                              aria-pressed="false" aria-label="Rose poudré"></button>
+          <button class="sw" data-bg="sage"     style="background:#DCE3D9"                              aria-pressed="false" aria-label="Vert sauge"></button>
           <button class="sw none" data-bg="none"                                                        aria-pressed="false" aria-label="Garder le fond d’origine"></button>
         </div>
       </div>
@@ -567,7 +590,12 @@ body.is-empty .wrap{padding-bottom:28px}
       <p class="out" id="outTitle"></p>
       <div class="lrow"><span class="lcd">Description</span><button class="mini" data-copy="outDesc">Copier</button></div>
       <pre class="out desc" id="outDesc"></pre>
+      <div class="row">
+        <span class="lcd">Archive</span>
+        <div class="ctl"><button class="btn ghost" id="btnArchiveSave" style="padding:9px 14px;font-size:13px">Enregistrer l’annonce</button></div>
+      </div>
     </div>
+    <p class="hint">L’annonce enregistrée garde les photos finales et le texte, sur cet appareil. Pratique pour republier une pièce qui n’est pas partie.</p>
 
     <div class="sec"><span class="idx">05</span><h2>Simulation portée</h2><span class="rule"></span></div>
 
@@ -622,6 +650,18 @@ body.is-empty .wrap{padding-bottom:28px}
     <button class="btn" id="btnExport">Exporter les photos</button>
   </div>
 </footer>
+
+<div class="sheetwrap" id="archiveSheet" hidden>
+  <div class="sheetbox tall" role="dialog" aria-modal="true" aria-label="Mes annonces">
+    <div class="sheethead">
+      <h3>Mes annonces</h3>
+      <span class="lcd" id="archUsage" style="margin-left:12px"></span>
+      <button id="archClose" aria-label="Fermer">×</button>
+    </div>
+    <div id="archList"></div>
+    <p class="sheettext small">Ces sauvegardes vivent sur cet appareil. iOS peut les effacer si l’espace vient à manquer, et elles disparaissent si vous supprimez l’app de l’écran d’accueil. Pour les pièces auxquelles vous tenez, enregistrez aussi les photos dans votre galerie.</p>
+  </div>
+</div>
 
 <div class="sheetwrap" id="helpSheet" hidden>
   <div class="sheetbox" role="dialog" aria-modal="true" aria-label="Comment ça marche">
@@ -709,7 +749,8 @@ const IS_DEV = APP_VERSION === '0.0.0';
 
 /* ---------- constantes ---------- */
 const WORK_MAX = 1400;   // résolution d'analyse et de détourage
-const PREV_MAX = 760;    // résolution de l'aperçu interactif
+const PREV_MAX = 760;    // résolution de l'aperçu au repos
+const SCRUB_MAX = 400;   // résolution pendant qu'un curseur bouge
 const OUT_MAX  = 1400;   // plus grand côté du JPEG exporté
 const MAX_PHOTOS = 12;   // budget mémoire raisonnable sur mobile
 const JPEG_Q   = 0.92;
@@ -717,9 +758,13 @@ const RATIOS   = { '3:4': 3 / 4, '4:5': 4 / 5, '1:1': 1 };
 
 const BACKGROUNDS = {
   white:    { kind: 'solid', a: '#FFFFFF' },
-  offwhite: { kind: 'solid', a: '#F5F3EF' },
-  grey:     { kind: 'solid', a: '#E9E9E7' },
   sweep:    { kind: 'sweep', a: '#FFFFFF', b: '#E4E2DD' },
+  grey:     { kind: 'solid', a: '#E9E9E7' },
+  wood:     { kind: 'tex',   tex: 'wood' },
+  linen:    { kind: 'tex',   tex: 'linen' },
+  concrete: { kind: 'tex',   tex: 'concrete' },
+  blush:    { kind: 'solid', a: '#F0DEDA' },
+  sage:     { kind: 'solid', a: '#DCE3D9' },
   none:     { kind: 'none' }
 };
 
@@ -1235,6 +1280,101 @@ function unsharp(rgba, w, h, amount) {
   }
 }
 
+
+/* =============================================================
+   FONDS TEXTURÉS
+   Générés une fois puis réutilisés : dessiner du veinage à chaque
+   image d'aperçu serait bien trop coûteux sur téléphone.
+   ============================================================= */
+const TEX_CACHE = {};
+
+function texture(key) {
+  if (TEX_CACHE[key]) return TEX_CACHE[key];
+  const W = 700, H = 900;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  ({ wood: paintWood, linen: paintLinen, concrete: paintConcrete }[key] || paintLinen)(x, W, H);
+  TEX_CACHE[key] = c;
+  return c;
+}
+
+/** Parquet clair : lames verticales, veinage souple, joints discrets. */
+function paintWood(x, W, H) {
+  const lame = W / 3.1;
+  for (let p = 0; p * lame < W; p++) {
+    const x0 = p * lame;
+    const t = Math.sin(p * 2.7) * 4;
+    const g = x.createLinearGradient(x0, 0, x0 + lame, 0);
+    g.addColorStop(0,    `hsl(33, 33%, ${68 + t}%)`);
+    g.addColorStop(0.45, `hsl(32, 36%, ${75 + t}%)`);
+    g.addColorStop(1,    `hsl(31, 31%, ${70 + t}%)`);
+    x.fillStyle = g;
+    x.fillRect(x0, 0, lame, H);
+
+    x.lineWidth = 1.4;
+    for (let v = 0; v < 16; v++) {
+      const vx = x0 + lame * ((v + 0.5) / 16);
+      x.strokeStyle = `hsla(28, 30%, ${52 + (v % 3) * 6}%, ${0.05 + (v % 4) * 0.03})`;
+      x.beginPath();
+      x.moveTo(vx, 0);
+      for (let y = 0; y <= H; y += 30) x.lineTo(vx + Math.sin(y * 0.011 + v * 3.1 + p) * lame * 0.055, y);
+      x.stroke();
+    }
+    // nœuds du bois, très espacés
+    if (p % 2 === 0) {
+      const ky = H * (0.25 + (p % 3) * 0.22);
+      const k = x.createRadialGradient(x0 + lame * 0.5, ky, 0, x0 + lame * 0.5, ky, lame * 0.3);
+      k.addColorStop(0, 'hsla(28, 34%, 58%, .22)');
+      k.addColorStop(1, 'hsla(28, 34%, 58%, 0)');
+      x.fillStyle = k;
+      x.fillRect(x0, ky - lame * 0.3, lame, lame * 0.6);
+    }
+    x.fillStyle = 'hsla(28, 26%, 46%, .17)';
+    x.fillRect(x0, 0, 2, H);
+  }
+}
+
+/** Lin beige : trame fine, tissée dans les deux sens. */
+function paintLinen(x, W, H) {
+  x.fillStyle = '#EBE4D7';
+  x.fillRect(0, 0, W, H);
+  x.lineWidth = 1;
+  for (let y = 0; y < H; y += 3) {
+    x.strokeStyle = `hsla(40, 24%, ${86 + (y % 6 ? 3 : -3)}%, .55)`;
+    x.beginPath(); x.moveTo(0, y + 0.5); x.lineTo(W, y + 0.5); x.stroke();
+  }
+  for (let i = 0; i < W; i += 3) {
+    x.strokeStyle = `hsla(40, 20%, ${84 + (i % 6 ? 2 : -4)}%, .35)`;
+    x.beginPath(); x.moveTo(i + 0.5, 0); x.lineTo(i + 0.5, H); x.stroke();
+  }
+  // irrégularités du fil
+  for (let i = 0; i < 240; i++) {
+    const px = Math.random() * W, py = Math.random() * H;
+    x.fillStyle = `hsla(38, 22%, ${70 + Math.random() * 18}%, .18)`;
+    x.fillRect(px, py, 1 + Math.random() * 14, 1);
+  }
+}
+
+/** Béton clair : nuances larges et poussière fine, très neutre. */
+function paintConcrete(x, W, H) {
+  x.fillStyle = '#E3E1DD';
+  x.fillRect(0, 0, W, H);
+  for (let i = 0; i < 26; i++) {
+    const cx = Math.random() * W, cy = Math.random() * H, r = 90 + Math.random() * 260;
+    const g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+    const l = 84 + Math.random() * 10;
+    g.addColorStop(0, `hsla(40, 6%, ${l}%, .5)`);
+    g.addColorStop(1, `hsla(40, 6%, ${l}%, 0)`);
+    x.fillStyle = g;
+    x.fillRect(cx - r, cy - r, r * 2, r * 2);
+  }
+  for (let i = 0; i < 900; i++) {
+    x.fillStyle = `hsla(40, 5%, ${55 + Math.random() * 30}%, .10)`;
+    x.fillRect(Math.random() * W, Math.random() * H, 1.5, 1.5);
+  }
+}
+
 /* =============================================================
    5. COMPOSITION
    ============================================================= */
@@ -1259,6 +1399,14 @@ function paintBackground(ctx, W, H, key) {
     const r = ctx.createRadialGradient(W / 2, H * 0.1, 0, W / 2, H * 0.1, Math.max(W, H) * 0.95);
     r.addColorStop(0, 'rgba(255,255,255,.85)'); r.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = r; ctx.fillRect(0, 0, W, H);
+  } else if (bgDef.kind === 'tex') {
+    ctx.drawImage(texture(bgDef.tex), 0, 0, W, H);
+    // Léger assombrissement des bords : le vêtement se détache mieux.
+    const v = ctx.createRadialGradient(W / 2, H * 0.42, Math.min(W, H) * 0.2, W / 2, H * 0.5, Math.max(W, H) * 0.78);
+    v.addColorStop(0, 'rgba(0,0,0,0)');
+    v.addColorStop(1, 'rgba(38,30,22,.13)');
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, W, H);
   } else {
     ctx.fillStyle = bgDef.a || '#FFFFFF';
     ctx.fillRect(0, 0, W, H);
@@ -1323,6 +1471,7 @@ function compose(src, s, longEdge) {
   if (s.shadow) {
     drawContactShadow(ctx, W / 2, dy + dh + H * 0.012, dw * 0.46, dh * 0.05 + H * 0.012);
   }
+
   ctx.drawImage(layer, bb.x, bb.y, bb.w, bb.h, dx, dy, dw, dh);
   return out;
 }
@@ -1383,6 +1532,7 @@ async function ingest(file) {
   const src = await decode(file);
   asset.work = toBuffer(src, WORK_MAX);
   asset.prev = toBuffer(src, PREV_MAX);
+  asset.scrub = toBuffer(src, SCRUB_MAX);
   if (src.close) src.close();
 
   await nextFrame();
@@ -1403,8 +1553,10 @@ async function recompute(asset) {
   asset.bgFrac = seg.bgFrac;
   asset.an = analyze(asset.work, seg.alpha, seg.ref, seg.bgFrac);
   asset.alphaPrev = resampleAlpha(seg.alpha, asset.work.w, asset.work.h, asset.prev.w, asset.prev.h);
+  asset.alphaScrub = resampleAlpha(seg.alpha, asset.work.w, asset.work.h, asset.scrub.w, asset.scrub.h);
   asset.bbox = bboxOf(seg.alpha, asset.work.w, asset.work.h);
   asset.bboxPrev = bboxOf(asset.alphaPrev, asset.prev.w, asset.prev.h);
+  asset.bboxScrub = bboxOf(asset.alphaScrub, asset.scrub.w, asset.scrub.h);
 
   asset.warnings = [];
   if (!seg.confident) {
@@ -1423,11 +1575,18 @@ async function recompute(asset) {
   if (typeof refreshColors === 'function') { refreshColors(); renderListing(); }
 }
 
-/** Rendu aperçu (basse résolution) — utilisé par le comparateur et les vignettes. */
-function renderPreview(asset, longEdge) {
-  const s = asset.settings;
-  const rgba = applyTone(asset.prev, asset.alphaPrev, asset.an, s, asset.ref);
-  return compose({ w: asset.prev.w, h: asset.prev.h, rgba, bbox: asset.bboxPrev }, s, longEdge);
+/**
+ * Rendu aperçu. En mode rapide on travaille sur un tampon quatre fois plus
+ * petit et on saute l'accentuation : c'est elle qui coûte le plus cher, et
+ * elle est invisible à cette taille. Le rendu complet revient au relâchement.
+ */
+function renderPreview(asset, longEdge, fast) {
+  const s = fast ? Object.assign({}, asset.settings, { sharpen: 0 }) : asset.settings;
+  const buf = fast ? asset.scrub : asset.prev;
+  const alpha = fast ? asset.alphaScrub : asset.alphaPrev;
+  const bbox = fast ? asset.bboxScrub : asset.bboxPrev;
+  const rgba = applyTone(buf, alpha, asset.an, s, asset.ref);
+  return compose({ w: buf.w, h: buf.h, rgba, bbox }, s, longEdge);
 }
 
 /** Rendu final pleine résolution. */
@@ -1470,7 +1629,7 @@ function renderSheet() {
     f.className = 'frame' + (i === state.selected ? ' is-sel' : '');
     f.innerHTML = `
       <button class="thumb" aria-label="Photo ${i + 1}">
-        ${a.thumbUrl ? `<img src="${a.thumbUrl}" alt="">` : ''}
+        ${a.thumbUrl ? `<img src="${a.thumbUrl}" data-id="${a.id}" alt="">` : ''}
         ${i === 0 ? '<span class="cover">1RE</span>' : ''}
       </button>
       <button class="kill" aria-label="Supprimer la photo ${i + 1}">×</button>
@@ -1492,7 +1651,7 @@ function removeAsset(i) {
   if (typeof refreshColors === 'function') { refreshColors(); renderListing(); }
   if (state.selected >= state.assets.length) state.selected = state.assets.length - 1;
   renderSheet();
-  if (state.assets.length) drawViewer(); else { state.selected = -1; }
+  if (state.assets.length) drawViewer(false); else { state.selected = -1; }
   updateStatus();
 }
 
@@ -1500,23 +1659,27 @@ function select(i) {
   state.selected = i;
   syncControls();
   renderSheet();
-  drawViewer();
+  drawViewer(false);
 }
 
 const current = () => state.assets[state.selected];
 
 /* --- comparateur --- */
 let rafPending = false;
-function drawViewer() {
+let fullTimer = null;
+function drawViewer(fast) {
   const a = current();
   if (!a || !a.alpha) return;
+  // Après un mouvement, on repasse en qualité pleine dès que le doigt s'arrête.
+  clearTimeout(fullTimer);
+  if (fast) fullTimer = setTimeout(() => drawViewer(false), 180);
   if (rafPending) return;
   rafPending = true;
   requestAnimationFrame(() => {
     rafPending = false;
     const a2 = current(); if (!a2 || !a2.alpha) return;
-    const after = renderPreview(a2, 900);
-    const before = composeBefore(a2.prev, a2.settings, 900);
+    const after = renderPreview(a2, fast ? 620 : 900, fast);
+    const before = composeBefore(fast ? a2.scrub : a2.prev, a2.settings, fast ? 620 : 900);
     for (const [cv, srcCv] of [[els.cvBefore, before], [els.cvAfter, after]]) {
       cv.width = srcCv.width; cv.height = srcCv.height;
       cv.getContext('2d').drawImage(srcCv, 0, 0);
@@ -1604,11 +1767,12 @@ SLIDERS.forEach(([id, key, vid, fmt]) => {
     $$('#presets .chip').forEach(b => b.setAttribute('aria-pressed', 'false'));
     if (key === 'tolAdj') {
       clearTimeout(tolTimer);
-      tolTimer = setTimeout(() => recompute(a).then(drawViewer), 260);
+      tolTimer = setTimeout(() => recompute(a).then(() => drawViewer(false)), 300);
     } else {
-      drawViewer();
+      drawViewer(true);
     }
   });
+  $('#' + id).addEventListener('change', () => { drawViewer(false); refreshThumb(current()); });
 });
 
 $('#swatches').addEventListener('click', (e) => {
@@ -1618,20 +1782,20 @@ $('#swatches').addEventListener('click', (e) => {
   a.settings.removeBg = b.dataset.bg !== 'none';
   a._touched = true;
   a.settings._preset = null;
-  syncControls(); drawViewer(); refreshThumb(a);
+  syncControls(); drawViewer(false); refreshThumb(a);
 });
 
 $('#segRatio').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   const a = current(); if (!a) return;
   a.settings.ratio = b.dataset.ratio;
-  syncControls(); drawViewer(); refreshThumb(a);
+  syncControls(); drawViewer(false); refreshThumb(a);
 });
 
 $('#tgShadow').addEventListener('click', () => {
   const a = current(); if (!a) return;
   a.settings.shadow = !a.settings.shadow;
-  syncControls(); drawViewer(); refreshThumb(a);
+  syncControls(); drawViewer(false); refreshThumb(a);
 });
 
 const PRESET_HINT = {
@@ -1652,7 +1816,7 @@ $('#presets').addEventListener('click', (e) => {
   const tol = a.settings.tolAdj || 0;
   a.settings = Object.assign({}, p, { tolAdj: tol, _preset: b.dataset.preset });
   a._touched = true;
-  syncControls(); updatePresetHint(); drawViewer(); refreshThumb(a);
+  syncControls(); updatePresetHint(); drawViewer(false); refreshThumb(a);
 });
 
 $('#btnApplyAll').addEventListener('click', async () => {
@@ -1670,10 +1834,16 @@ $('#btnApplyAll').addEventListener('click', async () => {
   toast('Réglages appliqués à toutes les photos');
 });
 
+let thumbTimer = null;
 function refreshThumb(a) {
-  if (!a.alpha) return;
-  a.thumbUrl = renderPreview(a, 150).toDataURL('image/jpeg', 0.7);
-  renderSheet();
+  if (!a || !a.alpha) return;
+  clearTimeout(thumbTimer);
+  thumbTimer = setTimeout(() => {
+    a.thumbUrl = renderPreview(a, 150, false).toDataURL('image/jpeg', 0.7);
+    // Reconstruire toute la planche à chaque appui rendait le tactile poussif.
+    const img = els.sheet.querySelector(`img[data-id="${a.id}"]`);
+    if (img) img.src = a.thumbUrl; else renderSheet();
+  }, 140);
 }
 
 /* --- import --- */
@@ -1690,7 +1860,7 @@ async function handleFiles(list) {
     try {
       const a = await ingest(f);
       if (state.selected < 0) select(state.assets.indexOf(a));
-      else { renderSheet(); if (state.assets.length === 1) drawViewer(); }
+      else { renderSheet(); if (state.assets.length === 1) drawViewer(false); }
     } catch (err) {
       console.error(err);
       toast(`« ${f.name} » n’a pas pu être lue.`);
@@ -1703,7 +1873,7 @@ async function handleFiles(list) {
   setTimeout(() => { els.prog.style.width = '0'; }, 500);
   if (state.selected < 0 && state.assets.length) select(0);
   renderSheet();
-  drawViewer();
+  drawViewer(false);
 }
 
 $('#btnCamera').onclick = () => els.fileCam.click();
@@ -2512,7 +2682,22 @@ async function copyText(el, btn) {
 }
 
 /* ---------- branchements ---------- */
+/** Les pastilles texturées affichent un extrait de la texture réelle. */
+function paintSwatches() {
+  $$('#swatches .sw[data-tex]').forEach(b => {
+    const t = texture(b.dataset.tex);
+    const c = document.createElement('canvas');
+    c.width = c.height = 60;
+    c.getContext('2d').drawImage(t, 120, 200, 260, 260, 0, 0, 60, 60);
+    b.style.backgroundImage = `url(${c.toDataURL('image/jpeg', 0.8)})`;
+    b.style.backgroundSize = 'cover';
+  });
+}
+
 function initListing() {
+  // Les textures coûtent quelques dizaines de millisecondes : on les fabrique
+  // après le premier affichage plutôt que de le retarder.
+  setTimeout(paintSwatches, 0);
   fillSelects();
   writeFields();
 
@@ -2716,12 +2901,13 @@ async function generateTryon() {
       }
 
       if (r.ok) { data = await r.json(); used = model; break; }
-      if (r.status === 404 || r.status === 503 || r.status === 500) continue;
-      if (r.status === 429) throw new Error('Quota d’images atteint. La génération d’images a son propre quota, souvent payant.');
+      // Chaque modèle d'image a son propre quota : un 429 sur l'un ne dit rien
+      // des autres, on descend la liste avant de renoncer.
+      if (r.status === 404 || r.status === 503 || r.status === 500 || r.status === 429) continue;
       if (r.status === 403 || r.status === 400) throw new Error('Modèle d’image refusé. Il faut peut-être activer la facturation sur votre projet Google.');
       throw new Error(`Le modèle d’image a répondu ${r.status}.`);
     }
-    if (!data) throw new Error('Aucun modèle d’image disponible pour l’instant.');
+    if (!data) throw new Error(`Aucun des ${Math.min(3, models.length)} modèles d’image testés n’a de quota disponible. La génération d’images n’est pas incluse dans l’offre gratuite : il faut activer la facturation chez Google. Le reste de l’app continue de fonctionner.`);
 
     lsSet(LS_IMG_MODEL, used);
     const parts = data.candidates?.[0]?.content?.parts || [];
@@ -2770,6 +2956,213 @@ function updateFraming() {
   const f = FRAMING[listing.cat] || FRAMING.tshirt;
   const el = $('#tryonFraming');
   if (el) el.textContent = f.fr;
+}
+
+
+/* =============================================================
+   ARCHIVE DES ANNONCES
+   Les photos finales et la fiche sont conservées dans IndexedDB, sur
+   l'appareil. Deux magasins : les métadonnées, légères, pour afficher
+   la liste sans charger les images ; les photos à part, lues seulement
+   à l'ouverture d'une annonce.
+   ============================================================= */
+const DB_NAME = 'propho', DB_VER = 1;
+
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, DB_VER);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('photos')) d.createObjectStore('photos', { keyPath: 'id' });
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+
+const reqDone = (r) => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const txDone = (t) => new Promise((res, rej) => { t.oncomplete = () => res(); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); });
+
+async function archiveAll() {
+  const db = await idb();
+  const rows = await reqDone(db.transaction('meta').objectStore('meta').getAll());
+  return rows.sort((a, b) => b.date - a.date);
+}
+
+async function archiveGetPhotos(id) {
+  const db = await idb();
+  const rec = await reqDone(db.transaction('photos').objectStore('photos').get(id));
+  return rec ? rec.blobs : [];
+}
+
+async function archiveDelete(id) {
+  const db = await idb();
+  const t = db.transaction(['meta', 'photos'], 'readwrite');
+  t.objectStore('meta').delete(id);
+  t.objectStore('photos').delete(id);
+  await txDone(t);
+}
+
+function frDate(ms) {
+  return new Date(ms).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function frSize(bytes) {
+  return bytes > 1e6 ? (bytes / 1e6).toFixed(1).replace('.', ',') + ' Mo' : Math.round(bytes / 1e3) + ' ko';
+}
+
+/* ---------- enregistrement ---------- */
+async function saveListing() {
+  const list = state.assets.filter(a => a.alpha);
+  if (!list.length) { toast('Chargez au moins une photo.'); return; }
+
+  const btn = $('#btnArchiveSave');
+  const label = btn.textContent;
+  btn.disabled = true;
+
+  try {
+    readFields();
+    const p = priceRange(listing);
+    const out = buildListing(listing, listing.colors);
+
+    const blobs = [];
+    for (let i = 0; i < list.length; i++) {
+      btn.textContent = `Rendu ${i + 1}/${list.length}…`;
+      await nextFrame();
+      blobs.push(await canvasToBlob(renderFinal(list[i])));
+    }
+    if (tryon.img) {
+      btn.textContent = 'Simulation…';
+      blobs.push(await (await fetch(tryon.img)).blob());
+    }
+
+    btn.textContent = 'Enregistrement…';
+    const id = 'a' + Date.now();
+    const meta = {
+      id, date: Date.now(),
+      title: out.title, desc: out.desc,
+      lo: p.lo, hi: p.hi,
+      thumb: renderPreview(list[0], 190, false).toDataURL('image/jpeg', 0.72),
+      count: blobs.length,
+      bytes: blobs.reduce((n, b) => n + b.size, 0),
+      fields: Object.assign({}, listing)
+    };
+
+    const db = await idb();
+    const t = db.transaction(['meta', 'photos'], 'readwrite');
+    t.objectStore('meta').put(meta);
+    t.objectStore('photos').put({ id, blobs });
+    await txDone(t);
+
+    toast('Annonce enregistrée dans « Mes annonces ».');
+  } catch (e) {
+    console.error(e);
+    toast(e && e.name === 'QuotaExceededError'
+      ? 'Espace de stockage plein. Supprimez des annonces vendues.'
+      : 'L’enregistrement a échoué.');
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+
+/* ---------- consultation ---------- */
+let archOpen = null;   // annonce dépliée
+let archUrls = [];     // URLs à révoquer
+
+function releaseArchUrls() {
+  archUrls.forEach(u => URL.revokeObjectURL(u));
+  archUrls = [];
+}
+
+async function renderArchive() {
+  const box = $('#archList');
+  const rows = await archiveAll();
+
+  if (!rows.length) {
+    box.innerHTML = '<p class="sheettext">Aucune annonce enregistrée pour l’instant. Depuis la fiche, touchez « Enregistrer l’annonce » : les photos finales et le texte seront conservés ici.</p>';
+    $('#archUsage').textContent = '';
+    return;
+  }
+
+  const total = rows.reduce((n, r) => n + r.bytes, 0);
+  $('#archUsage').textContent = `${rows.length} annonce${rows.length > 1 ? 's' : ''} · ${frSize(total)}`;
+
+  box.innerHTML = rows.map(r => `
+    <div class="archrow" data-id="${r.id}">
+      <img src="${r.thumb}" alt="">
+      <div class="archtxt">
+        <b>${r.title || 'Sans titre'}</b>
+        <span class="lcd">${frDate(r.date)} · ${r.count} photo${r.count > 1 ? 's' : ''} · ${fmt(r.lo)}–${fmt(r.hi)} €</span>
+      </div>
+      <span class="chev" aria-hidden="true">›</span>
+    </div>
+    <div class="archdet" id="det-${r.id}" hidden></div>
+  `).join('');
+
+  box.querySelectorAll('.archrow').forEach(el =>
+    el.addEventListener('click', () => toggleArch(el.dataset.id, rows.find(x => x.id === el.dataset.id))));
+}
+
+async function toggleArch(id, rec) {
+  const det = $('#det-' + id);
+  if (archOpen === id) { det.hidden = true; archOpen = null; releaseArchUrls(); return; }
+  if (archOpen) { const prev = $('#det-' + archOpen); if (prev) prev.hidden = true; }
+  releaseArchUrls();
+  archOpen = id;
+
+  det.hidden = false;
+  det.innerHTML = '<p class="sheettext small">Chargement…</p>';
+  const blobs = await archiveGetPhotos(id);
+  archUrls = blobs.map(b => URL.createObjectURL(b));
+
+  det.innerHTML = `
+    <div class="archshots">${archUrls.map(u => `<img src="${u}" alt="">`).join('')}</div>
+    <div class="archblock"><span class="lcd">Titre</span><p>${rec.title}</p></div>
+    <div class="archblock"><span class="lcd">Description</span><pre>${rec.desc}</pre></div>
+    <div class="archacts">
+      <button class="btn ghost" data-act="photos">Enregistrer les photos</button>
+      <button class="btn ghost" data-act="texte">Copier la description</button>
+      <button class="btn ghost" data-act="reprendre">Reprendre la fiche</button>
+      <button class="btn ghost danger" data-act="vendu">Vendu, supprimer</button>
+    </div>`;
+
+  det.querySelector('[data-act="photos"]').addEventListener('click', async (e) => {
+    if (await flushPendingShare(e.currentTarget)) return;
+    const items = blobs.map((b, i) => ({ blob: b, name: `${String(i + 1).padStart(2, '0')}-${slug(rec.title)}.jpg` }));
+    const how = await saveImages(items, e.currentTarget, `${slug(rec.title)}.zip`);
+    if (how === 'fichier' || how === 'archive') toast('Photos téléchargées');
+  });
+
+  det.querySelector('[data-act="texte"]').addEventListener('click', (e) =>
+    copyText(det.querySelector('pre'), e.currentTarget));
+
+  det.querySelector('[data-act="reprendre"]').addEventListener('click', () => {
+    Object.assign(listing, rec.fields);
+    writeFields();
+    renderListing();
+    if (typeof updateFraming === 'function') updateFraming();
+    closeArchive();
+    toast('Fiche reprise. Rechargez les photos si besoin.');
+  });
+
+  det.querySelector('[data-act="vendu"]').addEventListener('click', async () => {
+    if (!confirm(`Supprimer « ${rec.title} » ? Les photos enregistrées ici seront effacées.`)) return;
+    await archiveDelete(id);
+    releaseArchUrls();
+    archOpen = null;
+    await renderArchive();
+    toast('Annonce supprimée');
+  });
+}
+
+function openArchive() { $('#archiveSheet').hidden = false; renderArchive(); }
+function closeArchive() { $('#archiveSheet').hidden = true; releaseArchUrls(); archOpen = null; }
+
+function initArchive() {
+  $('#btnArchive').addEventListener('click', openArchive);
+  $('#archClose').addEventListener('click', closeArchive);
+  $('#archiveSheet').addEventListener('click', (e) => { if (e.target.id === 'archiveSheet') closeArchive(); });
+  $('#btnArchiveSave').addEventListener('click', saveListing);
 }
 
 /* =============================================================
@@ -2900,6 +3293,7 @@ PRESETS.naturel._preset = 'naturel';
 updateStatus();
 initListing();
 initTryon();
+initArchive();
 $('#verNum').textContent = IS_DEV ? 'dev' : APP_VERSION;
 checkUpdate(true);
 
