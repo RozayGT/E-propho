@@ -210,6 +210,8 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .sw{width:29px;height:29px;border-radius:50%;border:1px solid var(--line);position:relative}
 .sw[aria-pressed="true"]{box-shadow:0 0 0 2px var(--accent)}
 .sw.none{background:repeating-conic-gradient(#DDD 0 25%,#fff 0 50%) 50%/10px 10px}
+.sw.empty{background:linear-gradient(135deg,#F3F1EC,#E2DFD8)}
+.sw.pick{background:#fff;border-style:dashed;color:var(--ink-3);font-size:15px;line-height:1;display:grid;place-items:center}
 
 /* interrupteur */
 .sw-toggle{width:44px;height:26px;border-radius:999px;background:#D8D6D0;position:relative;transition:background .16s}
@@ -486,6 +488,8 @@ body.is-empty .wrap{padding-bottom:28px}
           <button class="sw" data-bg="concrete" data-tex="concrete"                                     aria-pressed="false" aria-label="Béton clair"></button>
           <button class="sw" data-bg="blush"    style="background:#F0DEDA"                              aria-pressed="false" aria-label="Rose poudré"></button>
           <button class="sw" data-bg="sage"     style="background:#DCE3D9"                              aria-pressed="false" aria-label="Vert sauge"></button>
+          <button class="sw empty" id="swCustom" data-bg="custom"                                     aria-pressed="false" aria-label="Votre décor"></button>
+          <button class="sw pick" id="swCustomPick" type="button" aria-label="Importer un décor">+</button>
           <button class="sw none" data-bg="none"                                                        aria-pressed="false" aria-label="Garder le fond d’origine"></button>
         </div>
       </div>
@@ -610,6 +614,7 @@ body.is-empty .wrap{padding-bottom:28px}
         <div class="ctl"><div class="seg" id="segSexe">
           <button data-sexe="femme" aria-pressed="true">Femme</button>
           <button data-sexe="homme" aria-pressed="false">Homme</button>
+          <button data-sexe="cintre" aria-pressed="false">Cintre</button>
         </div></div>
       </div>
       <div class="row">
@@ -624,7 +629,7 @@ body.is-empty .wrap{padding-bottom:28px}
 
     <div class="airow" style="margin-top:12px">
       <button class="btn ghost" id="btnTryon">Générer la simulation</button>
-      <span class="lcd" style="text-transform:none;letter-spacing:.02em;font-size:10.5px;line-height:1.5">Le cadrage suit la catégorie choisie plus haut, et exclut toujours le visage.</span>
+      <span class="lcd" style="text-transform:none;letter-spacing:.02em;font-size:10.5px;line-height:1.5">Le cadrage suit la catégorie choisie plus haut. Sur silhouette, le visage est toujours exclu.</span>
     </div>
 
     <div id="tryonOut" hidden style="margin-top:12px">
@@ -721,6 +726,7 @@ body.is-empty .wrap{padding-bottom:28px}
   </div>
 </div>
 
+<input type="file" id="fileBg" accept="image/*" hidden>
 <input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
 <input type="file" id="fileLib" accept="image/*" multiple hidden>
 
@@ -765,6 +771,7 @@ const BACKGROUNDS = {
   concrete: { kind: 'tex',   tex: 'concrete' },
   blush:    { kind: 'solid', a: '#F0DEDA' },
   sage:     { kind: 'solid', a: '#DCE3D9' },
+  custom:   { kind: 'custom' },
   none:     { kind: 'none' }
 };
 
@@ -1030,29 +1037,62 @@ function segment(buf, tolAdj) {
 
   let sp = 0;
 
-  /* --- c. trous internes (entre un bras et le corps, anse de sac…) --- */
-  const minHole = n * 0.0025;
+  /* --- c. trous internes (entre un bras et le corps, anse de sac…) ---
+     Trois conditions cumulatives, parce qu'une étiquette blanche cousue au
+     milieu d'un vêtement ressemble beaucoup à un trou : la zone doit être
+     large, vraiment de la couleur du fond, et unie. Une étiquette porte du
+     texte imprimé, donc elle échoue au test d'uniformité. */
+  const minHole = n * 0.012;
+  const tolHole = tol * 0.62;
   const comp = new Int32Array(n);
   const seenHole = new Uint8Array(n);
-  for (let s = 0; s < n; s++) {
-    if (bg[s] || seenHole[s]) continue;
-    const ps = s << 2;
-    if (dist(data[ps], data[ps + 1], data[ps + 2], ref.r, ref.g, ref.b) >= tol) continue;
-    let cn = 0; sp = 0; stack[sp++] = s; seenHole[s] = 1;
+  for (let st = 0; st < n; st++) {
+    if (bg[st] || seenHole[st]) continue;
+    const ps = st << 2;
+    if (dist(data[ps], data[ps + 1], data[ps + 2], ref.r, ref.g, ref.b) >= tolHole) continue;
+
+    let cn = 0, sumD = 0;
+    let hx0 = w, hx1 = -1, hy0 = h, hy1 = -1;
+    sp = 0; stack[sp++] = st; seenHole[st] = 1;
     while (sp > 0) {
-      const i = stack[--sp]; comp[cn++] = i;
-      const x = i % w, y = (i / w) | 0;
+      const i = stack[--sp];
+      comp[cn++] = i;
+      const p = i << 2;
+      sumD += dist(data[p], data[p + 1], data[p + 2], ref.r, ref.g, ref.b);
+
+      const x = i % w, yy = (i / w) | 0;
+      if (x < hx0) hx0 = x; if (x > hx1) hx1 = x;
+      if (yy < hy0) hy0 = yy; if (yy > hy1) hy1 = yy;
       const tryPx = (j) => {
         if (bg[j] || seenHole[j]) return;
-        const p = j << 2;
-        if (dist(data[p], data[p + 1], data[p + 2], ref.r, ref.g, ref.b) < tol) { seenHole[j] = 1; stack[sp++] = j; }
+        const q = j << 2;
+        if (dist(data[q], data[q + 1], data[q + 2], ref.r, ref.g, ref.b) < tolHole) { seenHole[j] = 1; stack[sp++] = j; }
       };
-      if (x > 0)     tryPx(i - 1);
-      if (x < w - 1) tryPx(i + 1);
-      if (y > 0)     tryPx(i - w);
-      if (y < h - 1) tryPx(i + w);
+      if (x > 0)      tryPx(i - 1);
+      if (x < w - 1)  tryPx(i + 1);
+      if (yy > 0)     tryPx(i - w);
+      if (yy < h - 1) tryPx(i + w);
     }
-    if (cn >= minHole) { for (let k = 0; k < cn; k++) bg[comp[k]] = 1; filled += cn; }
+
+    // L'uniformité se mesure sur tout le rectangle englobant, pas sur les seuls
+    // pixels parcourus : le texte imprimé d'une étiquette est justement ce qui
+    // n'a pas été parcouru, et c'est lui qui la distingue d'un vrai trou.
+    let sY = 0, sY2 = 0, nb = 0;
+    const pas = Math.max(1, Math.round(Math.sqrt((hx1 - hx0 + 1) * (hy1 - hy0 + 1)) / 60));
+    for (let y = hy0; y <= hy1; y += pas) for (let x = hx0; x <= hx1; x += pas) {
+      const p = (y * w + x) << 2;
+      const l = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
+      sY += l; sY2 += l * l; nb++;
+    }
+    const ecartType = nb ? Math.sqrt(Math.max(0, sY2 / nb - (sY / nb) ** 2)) : 0;
+    const aire = (hx1 - hx0 + 1) * (hy1 - hy0 + 1);
+    const remplissage = cn / Math.max(1, aire);
+
+    const vraiTrou = cn >= minHole
+      && sumD / cn < tol * 0.42     // vraiment la couleur du fond
+      && ecartType < 16             // uni, aucun texte ni motif
+      && remplissage > 0.72;        // une masse pleine, pas une forme trouée
+    if (vraiTrou) { for (let k = 0; k < cn; k++) bg[comp[k]] = 1; filled += cn; }
   }
 
   /* --- d. îlots de sujet minuscules (poussière, reflets, étiquette au sol) --- */
@@ -1287,6 +1327,59 @@ function unsharp(rgba, w, h, amount) {
    image d'aperçu serait bien trop coûteux sur téléphone.
    ============================================================= */
 const TEX_CACHE = {};
+let customBg = null;        // canvas du décor importé
+const CUSTOM_KEY = 'decor';
+
+/** Charge le décor personnalisé depuis IndexedDB au démarrage. */
+async function loadCustomBg() {
+  try {
+    const db = await idb();
+    const rec = await reqDone(db.transaction('photos').objectStore('photos').get(CUSTOM_KEY));
+    if (rec && rec.blobs && rec.blobs[0]) await setCustomBg(rec.blobs[0], false);
+  } catch (e) { /* pas de décor enregistré */ }
+}
+
+/** Installe un décor : décodé, réduit, puis conservé pour les prochaines fois. */
+async function setCustomBg(blobOrFile, persist) {
+  const src = await decode(blobOrFile);
+  const k = Math.min(1, 1400 / Math.max(src.naturalWidth || src.width, src.naturalHeight || src.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round((src.naturalWidth || src.width) * k);
+  c.height = Math.round((src.naturalHeight || src.height) * k);
+  const x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(src, 0, 0, c.width, c.height);
+  if (src.close) src.close();
+  customBg = c;
+
+  const sw = $('#swCustom');
+  if (sw) {
+    const mini = document.createElement('canvas');
+    mini.width = mini.height = 60;
+    const s2 = Math.min(c.width, c.height);
+    mini.getContext('2d').drawImage(c, (c.width - s2) / 2, (c.height - s2) / 2, s2, s2, 0, 0, 60, 60);
+    sw.style.backgroundImage = `url(${mini.toDataURL('image/jpeg', 0.8)})`;
+    sw.style.backgroundSize = 'cover';
+    sw.classList.remove('empty');
+  }
+
+  if (persist) {
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.86));
+    const db = await idb();
+    const t = db.transaction('photos', 'readwrite');
+    t.objectStore('photos').put({ id: CUSTOM_KEY, blobs: [blob] });
+    await txDone(t);
+  }
+}
+
+/** Recadrage « couvrant » : le décor remplit le cadre sans se déformer. */
+function drawCover(ctx, img, W, H) {
+  const r = img.width / img.height, R = W / H;
+  let sw, sh, sx, sy;
+  if (r > R) { sh = img.height; sw = sh * R; sx = (img.width - sw) / 2; sy = 0; }
+  else { sw = img.width; sh = sw / R; sx = 0; sy = (img.height - sh) / 2; }
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
+}
 
 function texture(key) {
   if (TEX_CACHE[key]) return TEX_CACHE[key];
@@ -1399,6 +1492,19 @@ function paintBackground(ctx, W, H, key) {
     const r = ctx.createRadialGradient(W / 2, H * 0.1, 0, W / 2, H * 0.1, Math.max(W, H) * 0.95);
     r.addColorStop(0, 'rgba(255,255,255,.85)'); r.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = r; ctx.fillRect(0, 0, W, H);
+  } else if (bgDef.kind === 'custom') {
+    if (customBg) {
+      drawCover(ctx, customBg, W, H);
+      // Voile clair derrière le vêtement : un décor chargé noierait la pièce.
+      const veil = ctx.createRadialGradient(W / 2, H * 0.48, 0, W / 2, H * 0.5, Math.max(W, H) * 0.52);
+      veil.addColorStop(0, 'rgba(255,255,255,.42)');
+      veil.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = veil;
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#EFEDE8';
+      ctx.fillRect(0, 0, W, H);
+    }
   } else if (bgDef.kind === 'tex') {
     ctx.drawImage(texture(bgDef.tex), 0, 0, W, H);
     // Léger assombrissement des bords : le vêtement se détache mieux.
@@ -1778,6 +1884,7 @@ SLIDERS.forEach(([id, key, vid, fmt]) => {
 $('#swatches').addEventListener('click', (e) => {
   const b = e.target.closest('.sw'); if (!b) return;
   const a = current(); if (!a) return;
+  if (b.dataset.bg === 'custom' && !customBg) { $('#fileBg').click(); return; }
   a.settings.bg = b.dataset.bg;
   a.settings.removeBg = b.dataset.bg !== 'none';
   a._touched = true;
@@ -2776,6 +2883,20 @@ const FRAMING = {
 
 function tryonPrompt() {
   const f = FRAMING[listing.cat] || FRAMING.tshirt;
+
+  if (tryon.sexe === 'cintre') {
+    return `Photograph this exact garment hanging on a plain wooden clothes hanger against a light neutral wall.
+
+Framing: the whole garment, hanging naturally from the hanger, with the hanger hook visible at the top. No person, no mannequin, no hands.
+
+Absolute requirements:
+- Reproduce the garment exactly as shown: same colour, same pattern, same cut, same length, same details, same visible wear. Do not restyle, recolour, lengthen, shorten or clean it.
+- The shoulders must sit on the hanger bar so the fabric falls naturally, with the vertical folds of a hanging garment.
+- Plain light neutral background, soft even lighting, no props, no text, no logo overlay.
+- Photographic realism, as a second-hand clothing listing photo. No illustration, no 3D render.
+- Vertical portrait format.`;
+  }
+
   const who = tryon.sexe === 'homme' ? 'an adult man' : 'an adult woman';
   return `Photograph this exact garment worn by ${who} with an average, realistic, well-proportioned build.
 
@@ -2935,6 +3056,7 @@ function initTryon() {
     const b = e.target.closest('button'); if (!b) return;
     tryon.sexe = b.dataset.sexe;
     $$('#segSexe button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    updateFraming();
   });
   $('#tgMention').addEventListener('click', async () => {
     tryon.mention = !tryon.mention;
@@ -2953,9 +3075,11 @@ function initTryon() {
 }
 
 function updateFraming() {
-  const f = FRAMING[listing.cat] || FRAMING.tshirt;
   const el = $('#tryonFraming');
-  if (el) el.textContent = f.fr;
+  if (!el) return;
+  el.textContent = tryon.sexe === 'cintre'
+    ? 'Vêtement entier sur cintre'
+    : (FRAMING[listing.cat] || FRAMING.tshirt).fr;
 }
 
 
@@ -3163,6 +3287,19 @@ function initArchive() {
   $('#archClose').addEventListener('click', closeArchive);
   $('#archiveSheet').addEventListener('click', (e) => { if (e.target.id === 'archiveSheet') closeArchive(); });
   $('#btnArchiveSave').addEventListener('click', saveListing);
+  $('#swCustomPick').addEventListener('click', () => $('#fileBg').click());
+  $('#fileBg').addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      await setCustomBg(f, true);
+      const a = current();
+      if (a) { a.settings.bg = 'custom'; a.settings.removeBg = true; a._touched = true; syncControls(); drawViewer(false); refreshThumb(a); }
+      toast('Décor enregistré. Il reste disponible pour vos prochaines annonces.');
+    } catch (err) { toast('Cette image n’a pas pu être lue.'); }
+  });
+  loadCustomBg();
 }
 
 /* =============================================================
