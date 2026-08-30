@@ -641,7 +641,7 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
       <button class="btn ghost" id="sheetDetect">Détecter</button>
       <button class="btn ghost" id="sheetTest">Tester</button>
     </div>
-    <p class="sheettext small">La liste vient de votre clé. « Tester » vous dit si le modèle répond et en combien de temps. En cas de saturation, l’app essaie automatiquement le suivant.</p>
+    <p class="sheettext small">La liste vient de votre clé. « Tester » essaie le modèle choisi, puis les suivants s’il est saturé, et retient celui qui répond.</p>
     <p class="sheettext small warn">Sur l’offre gratuite, Google peut utiliser les photos envoyées pour améliorer ses modèles, et des relecteurs humains peuvent les voir. Activer la facturation supprime cette clause.</p>
     <div class="sheetact">
       <button class="btn ghost" id="sheetForget">Supprimer la clé</button>
@@ -2071,10 +2071,45 @@ async function modelCandidates(key, force) {
     lsSet(LS_MODELS, JSON.stringify(list));
   }
   const pref = lsGet(LS_MODEL);
-  return pref ? [pref, ...list.filter(n => n !== pref)] : list;
+  let out = pref ? [pref, ...list.filter(n => n !== pref)] : list.slice();
+  const fresh = out.filter(n => !isBusy(n));
+  return fresh.length ? [...fresh, ...out.filter(n => isBusy(n))] : out;
 }
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+/* Un modèle saturé le reste quelques minutes : inutile de le retenter à
+   chaque analyse. On le range en fin de liste pendant ce délai. */
+const LS_BUSY = 'propho.gemini.busy';
+const BUSY_COOLDOWN = 10 * 60 * 1000;
+
+function busyMap() { try { return JSON.parse(lsGet(LS_BUSY) || '{}'); } catch (e) { return {}; } }
+function markBusy(model) {
+  const m = busyMap(); m[model] = Date.now();
+  lsSet(LS_BUSY, JSON.stringify(m));
+}
+function isBusy(model) {
+  const t = busyMap()[model];
+  return !!t && Date.now() - t < BUSY_COOLDOWN;
+}
+function clearBusy(model) {
+  const m = busyMap(); delete m[model];
+  lsSet(LS_BUSY, JSON.stringify(m));
+}
+
+/** Une requête texte minuscule, juste pour savoir si le modèle répond. */
+async function ping(model, key) {
+  const t0 = Date.now();
+  try {
+    const r = await fetch(`${API_ROOT}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: 'Réponds exactement : OK' }] }] })
+    });
+    return { ok: r.ok, status: r.status, ms: Date.now() - t0 };
+  } catch (e) {
+    return { ok: false, status: 0, ms: Date.now() - t0 };
+  }
+}
 
 const listing = {
   cat: 'pull', type: '', brand: '', tier: 'milieu', size: '', mat: '',
@@ -2216,12 +2251,12 @@ async function askGemini() {
       }
 
       if (r.ok) { res = r; break; }
-      if (r.status === 503 || r.status === 500) continue;   // au suivant
+      if (r.status === 503 || r.status === 500) { markBusy(model); continue; }   // au suivant
       res = r; break;                                        // 400/403/429 : changer de modèle n'aidera pas
     }
 
     if (!res) throw new Error('Tous les modèles disponibles sont saturés. Réessayez dans quelques minutes.');
-    if (res.ok) lsSet(LS_MODEL, model);
+    if (res.ok) { lsSet(LS_MODEL, model); clearBusy(model); }
 
     if (!res.ok) {
       const err = await res.text().catch(() => '');
@@ -2296,27 +2331,42 @@ async function detectModels(silent) {
 
 async function testModel() {
   const key = $('#sheetKey').value.trim() || lsGet(LS_KEY);
-  const model = $('#sheetModel').value;
   if (!key) { toast('Renseignez d’abord la clé.'); return; }
-  if (!model) { toast('Détectez d’abord les modèles.'); return; }
+
   const btn = $('#sheetTest');
   const label = btn.textContent;
   btn.disabled = true; btn.textContent = '…';
-  const t0 = Date.now();
+
   try {
-    const r = await fetch(`${API_ROOT}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: 'Réponds exactement : OK' }] }] })
-    });
-    const ms = Date.now() - t0;
-    if (r.ok) { lsSet(LS_MODEL, model); toast(`${model} répond en ${ms} ms.`); }
-    else if (r.status === 503 || r.status === 500) toast(`${model} est saturé. Choisissez-en un autre dans la liste.`);
-    else if (r.status === 404) toast(`${model} n’existe plus. Touchez « Détecter ».`);
-    else if (r.status === 429) toast('Quota atteint sur cette clé.');
-    else if (r.status === 400 || r.status === 403) toast('Clé refusée ou API non activée.');
-    else toast(`Erreur ${r.status}.`);
+    const chosen = $('#sheetModel').value;
+    let list = await modelCandidates(key, false);
+    if (chosen) list = [chosen, ...list.filter(n => n !== chosen)];
+    list = list.slice(0, 4);
+    let firstReason = 'indisponible';
+
+    for (let i = 0; i < list.length; i++) {
+      const model = list[i];
+      btn.textContent = i === 0 ? '…' : 'Suivant…';
+      const r = await ping(model, key);
+
+      if (r.ok) {
+        lsSet(LS_MODEL, model); clearBusy(model);
+        $('#sheetModel').value = model;
+        toast(i === 0
+          ? `${model} répond en ${r.ms} ms.`
+          : `${chosen} est ${firstReason}. Bascule sur ${model}, qui répond en ${r.ms} ms.`);
+        return;
+      }
+      if (r.status === 503 || r.status === 500) { if (i === 0) firstReason = 'saturé'; markBusy(model); continue; }
+      if (r.status === 404) { if (i === 0) firstReason = 'introuvable'; markBusy(model); continue; }
+      if (r.status === 429) { toast('Quota atteint sur cette clé. Réessayez plus tard.'); return; }
+      if (r.status === 400 || r.status === 403) { toast('Clé refusée ou API Gemini non activée.'); return; }
+      if (r.status === 0) { toast('Aucune réponse. Vérifiez la connexion.'); return; }
+      toast(`Erreur ${r.status} sur ${model}.`); return;
+    }
+    toast(`${list.length} modèles testés, aucun ne répond. Réessayez dans quelques minutes.`);
   } catch (e) {
-    toast('Aucune réponse. Vérifiez la connexion.');
+    toast(e.message || 'Le test a échoué.');
   } finally {
     btn.disabled = false; btn.textContent = label;
   }
