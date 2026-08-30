@@ -625,45 +625,6 @@ body.is-empty .wrap{padding-bottom:28px}
     </div>
     <p class="hint">L’annonce enregistrée garde les photos finales et le texte, sur cet appareil. Pratique pour republier une pièce qui n’est pas partie.</p>
 
-    <div class="sec"><span class="idx">05</span><h2>Simulation portée</h2><span class="rule"></span></div>
-
-    <div class="notice" id="tryonWarn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v5m0 3.2v.1"/><path d="M10.3 3.9 2.5 17.5A2 2 0 0 0 4.2 20.5h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-      <span>Image générée par IA, facturée par Google à l’unité. Gardez votre photo à plat en première position et laissez la mention : l’AI&nbsp;Act impose de signaler un visuel généré, et une présentation trompeuse engage votre responsabilité de vendeur.</span>
-    </div>
-
-    <div class="panel" style="margin-top:12px">
-      <div class="row">
-        <span class="lcd">Silhouette</span>
-        <div class="ctl"><div class="seg" id="segSexe">
-          <button data-sexe="femme" aria-pressed="true">Femme</button>
-          <button data-sexe="homme" aria-pressed="false">Homme</button>
-          <button data-sexe="cintre" aria-pressed="false">Cintre</button>
-        </div></div>
-      </div>
-      <div class="row">
-        <span class="lcd">Cadrage</span>
-        <div class="ctl"><span class="lcd" id="tryonFraming" style="text-transform:none;letter-spacing:.02em;font-size:12px"></span></div>
-      </div>
-      <div class="row">
-        <span class="lcd">Mention IA</span>
-        <div class="ctl"><button class="sw-toggle" id="tgMention" aria-pressed="true" aria-label="Mention Simulation IA"></button></div>
-      </div>
-    </div>
-
-    <div class="airow" style="margin-top:12px">
-      <button class="btn ghost" id="btnTryon">Générer la simulation</button>
-      <span class="lcd" style="text-transform:none;letter-spacing:.02em;font-size:10.5px;line-height:1.5">Le cadrage suit la catégorie choisie plus haut. Sur silhouette, le visage est toujours exclu.</span>
-    </div>
-
-    <div id="tryonOut" hidden style="margin-top:12px">
-      <div class="viewer"><img id="tryonImg" alt="Simulation portée" style="display:block;width:100%;height:auto"></div>
-      <div class="panel" style="margin-top:10px">
-        <div class="lrow"><span class="lcd">Simulation</span><button class="mini" id="tryonSave">Enregistrer</button></div>
-        <p class="out" style="font-size:12.5px;color:var(--ink-2)">Placez-la en deuxième ou troisième photo. La première doit rester votre photo réelle à plat.</p>
-      </div>
-    </div>
-
     <p class="hint" id="saveHint">L’export ouvre la feuille de partage iOS&nbsp;: choisissez <b>« Enregistrer l’image »</b> pour envoyer les photos dans votre galerie. Sur ordinateur, elles se téléchargent normalement.</p>
   </section>
 
@@ -1073,7 +1034,21 @@ function segment(buf, tolAdj) {
      milieu d'un vêtement ressemble beaucoup à un trou : la zone doit être
      large, vraiment de la couleur du fond, et unie. Une étiquette porte du
      texte imprimé, donc elle échoue au test d'uniformité. */
-  const minHole = n * 0.012;
+  // Écart-type du fond réellement trouvé : un parquet est texturé, un mur ne
+  // l'est pas. Comparer une zone enfermée à une valeur fixe était une erreur —
+  // une bande de parquet coincée entre le tissu et l'étiquette échouait au test
+  // alors qu'elle est bel et bien du fond.
+  let rY = 0, rY2 = 0, rN = 0;
+  for (let i = 0; i < n; i += 7) {
+    if (!bg[i]) continue;
+    const p = i << 2;
+    const l = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
+    rY += l; rY2 += l * l; rN++;
+  }
+  const refStd = rN > 50 ? Math.sqrt(Math.max(0, rY2 / rN - (rY / rN) ** 2)) : 6;
+  const seuilStd = refStd * 1.5 + 8;
+
+  const minHole = n * 0.008;
   const tolHole = tol * 0.62;
   const comp = new Int32Array(n);
   const seenHole = new Uint8Array(n);
@@ -1121,7 +1096,7 @@ function segment(buf, tolAdj) {
 
     const vraiTrou = cn >= minHole
       && sumD / cn < tol * 0.42     // vraiment la couleur du fond
-      && ecartType < 16             // uni, aucun texte ni motif
+      && ecartType < seuilStd       // pas plus texturé que le fond lui-même
       && remplissage > 0.72;        // une masse pleine, pas une forme trouée
     if (vraiTrou) { for (let k = 0; k < cn; k++) bg[comp[k]] = 1; filled += cn; }
   }
@@ -1600,13 +1575,29 @@ function paintBackground(ctx, W, H, key) {
  * d'épaules, le tissu recouvre la barre : seuls le crochet et les pointes
  * dépassent, ce qui donne l'illusion sans rien changer au vêtement.
  */
-function drawHanger(ctx, W, H, dx, dy, dw, dh, cat) {
+/** Largeur réelle du vêtement à une hauteur donnée, en coordonnées de sortie. */
+function spanAt(src, frac, dx, dy, dw, dh) {
+  const { w, rgba, bbox } = src;
+  const y = clamp((bbox.y + bbox.h * frac) | 0, bbox.y, bbox.y + bbox.h - 1);
+  let x0 = -1, x1 = -1;
+  for (let x = bbox.x; x < bbox.x + bbox.w; x++) {
+    if (rgba[((y * w) + x) * 4 + 3] > 128) { if (x0 < 0) x0 = x; x1 = x; }
+  }
+  if (x0 < 0) return null;
+  const k = dw / bbox.w;
+  return { x0: dx + (x0 - bbox.x) * k, x1: dx + (x1 - bbox.x) * k };
+}
+
+function drawHanger(ctx, W, H, dx, dy, dw, dh, cat, span) {
   const bas = cat === 'pantalon' || cat === 'jupe';
-  const cx = dx + dw / 2;
-  const ep = Math.max(2.5, dw * 0.017);
-  const demi = dw * (bas ? 0.40 : 0.46);
-  const barY = dy + dh * (bas ? 0.035 : 0.075);
-  const apexY = barY - dh * (bas ? 0.005 : 0.055);
+  // La barre suit les épaules du vêtement, pas le cadre : sinon elle dépasse
+  // de partout et le montage se voit immédiatement.
+  const cx = span ? (span.x0 + span.x1) / 2 : dx + dw / 2;
+  const large = span ? (span.x1 - span.x0) : dw;
+  const ep = Math.max(2.5, dw * 0.015);
+  const demi = large * (bas ? 0.44 : 0.54);
+  const barY = dy + dh * (bas ? 0.045 : 0.085);
+  const apexY = barY - dh * (bas ? 0.005 : 0.042);
 
   ctx.save();
   ctx.lineCap = 'round';
@@ -1642,16 +1633,16 @@ function drawHanger(ctx, W, H, dx, dy, dw, dh, cat) {
 
   // crochet métallique
   const hy = bas ? barY : apexY;
-  const r = Math.max(6, dw * 0.032);
+  const r = Math.max(5, large * 0.055);
   ctx.strokeStyle = '#9DA3A8';
   ctx.lineWidth = ep * 0.6;
   ctx.beginPath();
   ctx.moveTo(cx, hy);
-  ctx.lineTo(cx, hy - dh * 0.045);
+  ctx.lineTo(cx, hy - dh * 0.032);
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(cx + r, hy - dh * 0.045, r, Math.PI, 0, false);
-  ctx.lineTo(cx + 2 * r, hy - dh * 0.045 + r * 0.55);
+  ctx.arc(cx + r, hy - dh * 0.032, r, Math.PI, 0, false);
+  ctx.lineTo(cx + 2 * r, hy - dh * 0.032 + r * 0.55);
   ctx.stroke();
   ctx.restore();
 }
@@ -1711,7 +1702,8 @@ function compose(src, s, longEdge) {
   const dx = (W - dw) / 2;
   const dy = (H - dh) / 2 - (s.shadow ? H * 0.022 : 0);
 
-  if (s.hanger) drawHanger(ctx, W, H, dx, dy, dw, dh, listing.cat);
+  if (s.hanger) drawHanger(ctx, W, H, dx, dy, dw, dh, listing.cat,
+    spanAt(src, (listing.cat === 'pantalon' || listing.cat === 'jupe') ? 0.05 : 0.09, dx, dy, dw, dh));
   if (s.shadow) {
     drawContactShadow(ctx, W / 2, dy + dh + H * 0.012, dw * 0.46, dh * 0.05 + H * 0.012);
   }
@@ -2554,7 +2546,6 @@ function buildListing(f, colors) {
   if (f.meas) L.push('Mesures à plat : ' + f.meas.trim() + '.');
   if (f.details) L.push(f.details.trim().replace(/\.?$/, '.'));
 
-  if (f.aiPhoto) L.push('La photo portée est une simulation générée par IA à partir du vêtement réel ; les photos à plat sont les vraies.');
   L.push('Photos prises par mes soins. Envoi rapide et soigné, sous 24 h.');
   L.push('N’hésitez pas si vous voulez une mesure précise ou une photo supplémentaire.');
 
@@ -2861,7 +2852,6 @@ async function detectModels(silent) {
     const all = await fetchModels(key);
     const list = all.filter(n => !isImageModel(n));
     lsSet(LS_MODELS, JSON.stringify(list.slice().sort((a, b) => rankModel(b) - rankModel(a))));
-    lsSet(LS_IMG_MODELS, JSON.stringify(all.filter(isImageModel)));
     setModelOptions(list, lsGet(LS_MODEL) || bestModel(list));
     if (!silent) toast(`${list.length} modèle${list.length > 1 ? 's' : ''} disponible${list.length > 1 ? 's' : ''}.`);
   } catch (e) {
@@ -2969,7 +2959,7 @@ function initListing() {
       }
       renderListing();
     });
-    el.addEventListener('change', () => { renderListing(); if (typeof updateFraming === 'function') updateFraming(); });
+    el.addEventListener('change', renderListing);
   }
 
   $$('[data-copy]').forEach(b => b.addEventListener('click', () => copyText($('#' + b.dataset.copy), b)));
@@ -3002,237 +2992,6 @@ function updateAIButton() {
     ? 'Les photos partent chez Google au moment de l’analyse. Le reste de l’app fonctionne hors ligne.'
     : 'Sans clé, remplissez la fiche à la main. L’app reste 100 % locale.';
 }
-
-
-/* =============================================================
-   SIMULATION PORTÉE
-   Le vêtement détouré est envoyé à un modèle d'image, qui le replace
-   sur une silhouette. Trois garde-fous non négociables :
-     — la photo à plat reste toujours la première de l'annonce ;
-     — la description mentionne la génération par IA (AI Act) ;
-     — le cadrage exclut le visage, donc aucun visage n'est fabriqué.
-   ============================================================= */
-const LS_IMG_MODELS = 'propho.gemini.imgmodels';
-const LS_IMG_MODEL  = 'propho.gemini.imgmodel';
-
-const tryon = { sexe: 'femme', mention: true, img: null, busy: false };
-
-/** Cadrage par catégorie : on ne montre que la zone concernée. */
-const FRAMING = {
-  tshirt:     { fr: 'Buste',            en: 'framed from the collarbone to just below the hips, head cropped out of frame' },
-  chemise:    { fr: 'Buste',            en: 'framed from the collarbone to just below the hips, head cropped out of frame' },
-  pull:       { fr: 'Buste',            en: 'framed from the collarbone to just below the hips, head cropped out of frame' },
-  veste:      { fr: 'Buste et hanches', en: 'framed from the shoulders to mid-thigh, head cropped out of frame' },
-  manteau:    { fr: 'Buste et hanches', en: 'framed from the shoulders to mid-calf, head cropped out of frame' },
-  robe:       { fr: 'Silhouette',       en: 'framed from the shoulders to mid-calf, head cropped out of frame' },
-  jupe:       { fr: 'Taille aux pieds', en: 'framed from the waist to the ankles, upper body cropped out of frame' },
-  pantalon:   { fr: 'Taille aux pieds', en: 'framed from the waist to the ankles, upper body cropped out of frame' },
-  chaussures: { fr: 'Jambes et pieds',  en: 'framed from the knees down, showing the feet wearing the shoes' },
-  sac:        { fr: 'Main et épaule',   en: 'held by a forearm and hand only, no torso, no head' },
-  accessoire: { fr: 'Détail porté',     en: 'shown worn, closely framed on the relevant body part, head cropped out of frame' }
-};
-
-function tryonPrompt() {
-  const f = FRAMING[listing.cat] || FRAMING.tshirt;
-
-  if (tryon.sexe === 'cintre') {
-    return `Photograph this exact garment hanging on a plain wooden clothes hanger against a light neutral wall.
-
-Framing: the whole garment, hanging naturally from the hanger, with the hanger hook visible at the top. No person, no mannequin, no hands.
-
-Absolute requirements:
-- Reproduce the garment exactly as shown: same colour, same pattern, same cut, same length, same details, same visible wear. Do not restyle, recolour, lengthen, shorten or clean it.
-- The shoulders must sit on the hanger bar so the fabric falls naturally, with the vertical folds of a hanging garment.
-- Plain light neutral background, soft even lighting, no props, no text, no logo overlay.
-- Photographic realism, as a second-hand clothing listing photo. No illustration, no 3D render.
-- Vertical portrait format.`;
-  }
-
-  const who = tryon.sexe === 'homme' ? 'an adult man' : 'an adult woman';
-  return `Photograph this exact garment worn by ${who} with an average, realistic, well-proportioned build.
-
-Framing: ${f.en}.
-
-Absolute requirements:
-- Reproduce the garment exactly as shown: same colour, same pattern, same cut, same length, same details, same visible wear. Do not restyle, recolour, lengthen, shorten or clean it.
-- Natural fabric drape and folds, consistent with the material visible in the source image.
-- Plain light grey studio background, soft even lighting, no props, no text, no logo overlay.
-- Photographic realism, as a second-hand clothing listing photo. No illustration, no 3D render.
-- Do not show a face. The head must be outside the frame.
-- Vertical portrait format.`;
-}
-
-/** Le vêtement détouré, sur fond neutre, en entrée du modèle. */
-function tryonSource() {
-  const a = state.assets.find(x => x.alpha);
-  if (!a) return null;
-  const s = Object.assign({}, a.settings, { bg: 'grey', removeBg: a.settings.removeBg, ratio: '3:4' });
-  const cv = compose(
-    { w: a.work.w, h: a.work.h, rgba: applyTone(a.work, a.alpha, a.an, s, a.ref), bbox: a.bbox },
-    s, 1024
-  );
-  return cv.toDataURL('image/jpeg', 0.9).split(',')[1];
-}
-
-async function imageModels(key, force) {
-  let list = [];
-  try { list = JSON.parse(lsGet(LS_IMG_MODELS) || '[]'); } catch (e) { list = []; }
-  if (!list.length || force) {
-    list = (await fetchModels(key)).filter(isImageModel);
-    lsSet(LS_IMG_MODELS, JSON.stringify(list));
-  }
-  // Flash avant Pro : même travail, plusieurs fois moins cher.
-  const rank = (n) => {
-    let s = parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || '0') * 10;
-    if (/flash/.test(n)) s += 8; else if (/pro/.test(n)) s += 2;
-    if (/preview|exp\b/.test(n)) s -= 12;
-    return s;
-  };
-  const pref = lsGet(LS_IMG_MODEL);
-  const sorted = list.slice().sort((a, b) => rank(b) - rank(a));
-  return pref ? [pref, ...sorted.filter(n => n !== pref)] : sorted;
-}
-
-/** Ajoute la mention visible sur l'image rendue. */
-function stampImage(dataUrl, withMention) {
-  return new Promise((res) => {
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = img.naturalWidth; c.height = img.naturalHeight;
-      const x = c.getContext('2d');
-      x.drawImage(img, 0, 0);
-      if (withMention) {
-        const pad = Math.round(c.width * 0.028);
-        const fs = Math.max(11, Math.round(c.width * 0.026));
-        x.font = `600 ${fs}px system-ui, -apple-system, Helvetica, Arial, sans-serif`;
-        const label = 'Simulation IA';
-        const w = x.measureText(label).width + fs * 1.5;
-        const h = fs * 2.1;
-        x.fillStyle = 'rgba(16,18,21,.72)';
-        const rx = pad, ry = c.height - pad - h, r = h / 2;
-        x.beginPath();
-        x.moveTo(rx + r, ry); x.lineTo(rx + w - r, ry);
-        x.quadraticCurveTo(rx + w, ry, rx + w, ry + r);
-        x.lineTo(rx + w, ry + h - r);
-        x.quadraticCurveTo(rx + w, ry + h, rx + w - r, ry + h);
-        x.lineTo(rx + r, ry + h);
-        x.quadraticCurveTo(rx, ry + h, rx, ry + h - r);
-        x.lineTo(rx, ry + r);
-        x.quadraticCurveTo(rx, ry, rx + r, ry);
-        x.fill();
-        x.fillStyle = '#fff';
-        x.textBaseline = 'middle';
-        x.fillText(label, rx + fs * 0.75, ry + h / 2 + 1);
-      }
-      res(c.toDataURL('image/jpeg', 0.92));
-    };
-    img.onerror = () => res(dataUrl);
-    img.src = dataUrl;
-  });
-}
-
-async function generateTryon() {
-  const key = lsGet(LS_KEY);
-  if (!key) { openSettings(); toast('Ajoutez d’abord votre clé Gemini.'); return; }
-  const src = tryonSource();
-  if (!src) { toast('Chargez d’abord une photo du vêtement.'); return; }
-
-  const btn = $('#btnTryon');
-  const label = btn.textContent;
-  btn.disabled = true; tryon.busy = true;
-
-  try {
-    let models = await imageModels(key, false);
-    if (!models.length) { models = await imageModels(key, true); }
-    if (!models.length) throw new Error('Votre clé ne donne accès à aucun modèle d’image.');
-
-    const payload = (modalities) => JSON.stringify({
-      contents: [{ parts: [
-        { inline_data: { mime_type: 'image/jpeg', data: src } },
-        { text: tryonPrompt() }
-      ] }],
-      generationConfig: { responseModalities: modalities, temperature: 0.35 }
-    });
-
-    let data = null, used = null;
-    for (let i = 0; i < Math.min(3, models.length); i++) {
-      const model = models[i];
-      btn.textContent = i === 0 ? 'Génération…' : 'Autre modèle…';
-      const url = `${API_ROOT}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
-      const opts = (m) => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload(m) });
-
-      let r = await fetch(url, opts(['IMAGE']));
-      // Certains modèles exigent encore les deux modalités.
-      if (r.status === 400) r = await fetch(url, opts(['TEXT', 'IMAGE']));
-
-      for (let n = 1; n <= 2 && (r.status === 503 || r.status === 500); n++) {
-        btn.textContent = `Serveur occupé, reprise ${n}/2…`;
-        await sleep(n * 2000);
-        r = await fetch(url, opts(['IMAGE']));
-      }
-
-      if (r.ok) { data = await r.json(); used = model; break; }
-      // Chaque modèle d'image a son propre quota : un 429 sur l'un ne dit rien
-      // des autres, on descend la liste avant de renoncer.
-      if (r.status === 404 || r.status === 503 || r.status === 500 || r.status === 429) continue;
-      if (r.status === 403 || r.status === 400) throw new Error('Modèle d’image refusé. Il faut peut-être activer la facturation sur votre projet Google.');
-      throw new Error(`Le modèle d’image a répondu ${r.status}.`);
-    }
-    if (!data) throw new Error(`Aucun des ${Math.min(3, models.length)} modèles d’image testés n’a de quota disponible. La génération d’images n’est pas incluse dans l’offre gratuite : il faut activer la facturation chez Google. Le reste de l’app continue de fonctionner.`);
-
-    lsSet(LS_IMG_MODEL, used);
-    const parts = data.candidates?.[0]?.content?.parts || [];
-    const inline = parts.find(p => p.inline_data || p.inlineData);
-    if (!inline) throw new Error('Le modèle n’a pas renvoyé d’image. Réessayez.');
-    const blob = inline.inline_data || inline.inlineData;
-    const raw = `data:${blob.mime_type || blob.mimeType || 'image/png'};base64,${blob.data}`;
-
-    tryon.img = await stampImage(raw, tryon.mention);
-    $('#tryonImg').src = tryon.img;
-    $('#tryonOut').hidden = false;
-    listing.aiPhoto = true;
-    renderListing();
-    toast(`Simulation générée avec ${used}.`);
-  } catch (e) {
-    console.error(e);
-    toast(e.message || 'La génération a échoué.');
-  } finally {
-    btn.disabled = false; btn.textContent = label; tryon.busy = false;
-  }
-}
-
-function initTryon() {
-  $('#segSexe').addEventListener('click', (e) => {
-    const b = e.target.closest('button'); if (!b) return;
-    tryon.sexe = b.dataset.sexe;
-    $$('#segSexe button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-    updateFraming();
-  });
-  $('#tgMention').addEventListener('click', async () => {
-    tryon.mention = !tryon.mention;
-    $('#tgMention').setAttribute('aria-pressed', String(tryon.mention));
-    if (tryon.img) { /* on régénère la mention sans rappeler l'API */ }
-  });
-  $('#btnTryon').addEventListener('click', generateTryon);
-  $('#tryonSave').addEventListener('click', async (e) => {
-    if (await flushPendingShare(e.currentTarget)) return;
-    if (!tryon.img) return;
-    const b = await (await fetch(tryon.img)).blob();
-    const how = await saveImages([{ blob: b, name: `${slug(listing.type || 'vetement')}-porte-propho.jpg` }], e.currentTarget);
-    if (how === 'fichier') toast('Simulation téléchargée');
-  });
-  updateFraming();
-}
-
-function updateFraming() {
-  const el = $('#tryonFraming');
-  if (!el) return;
-  el.textContent = tryon.sexe === 'cintre'
-    ? 'Vêtement entier sur cintre'
-    : (FRAMING[listing.cat] || FRAMING.tshirt).fr;
-}
-
 
 
 /* =============================================================
@@ -3519,10 +3278,6 @@ async function saveListing() {
       await nextFrame();
       blobs.push(await canvasToBlob(renderFinal(list[i])));
     }
-    if (tryon.img) {
-      btn.textContent = 'Simulation…';
-      blobs.push(await (await fetch(tryon.img)).blob());
-    }
 
     btn.textContent = 'Enregistrement…';
     const id = 'a' + Date.now();
@@ -3628,7 +3383,6 @@ async function toggleArch(id, rec) {
     Object.assign(listing, rec.fields);
     writeFields();
     renderListing();
-    if (typeof updateFraming === 'function') updateFraming();
     closeArchive();
     toast('Fiche reprise. Rechargez les photos si besoin.');
   });
@@ -3751,7 +3505,6 @@ function resetAll() {
     cat: 'pull', type: '', brand: '', tier: 'milieu', size: '', mat: '',
     cond: 'tres_bon', meas: '', details: '', colors: [], aiPhoto: false
   });
-  tryon.img = null; $('#tryonOut').hidden = true;
   writeFields();
   $('#aiNote').hidden = true;
   refreshColors();
@@ -3793,7 +3546,6 @@ PRESETS.doux._preset = 'doux';
 PRESETS.naturel._preset = 'naturel';
 updateStatus();
 initListing();
-initTryon();
 initArchive();
 initEdit();
 $('#verNum').textContent = IS_DEV ? 'dev' : APP_VERSION;
