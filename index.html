@@ -279,7 +279,8 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border:1px solid var(
 
 
 /* ---------------- fiche, prix, annonce ---------------- */
-.gear{margin-left:12px;width:30px;height:30px;display:grid;place-items:center;color:var(--ink-2);flex:none}
+.gear{margin-left:8px;width:44px;height:44px;margin-top:-6px;margin-bottom:-6px;display:grid;place-items:center;
+  color:var(--ink-2);flex:none;align-self:center;position:relative;z-index:1}
 .gear svg{width:17px;height:17px}
 .appbar .lcd{margin-left:auto}
 
@@ -543,7 +544,7 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
   </div>
 </footer>
 
-<div class="sheetwrap" id="sheet" hidden>
+<div class="sheetwrap" id="settingsSheet" hidden>
   <div class="sheetbox" role="dialog" aria-modal="true" aria-label="Réglages">
     <div class="sheethead"><h3>Assistant IA</h3><button id="sheetClose" aria-label="Fermer">×</button></div>
     <p class="sheettext">L’app fonctionne entièrement hors ligne. L’assistant est optionnel : il lit vos photos avec Gemini pour pré-remplir la fiche, notamment l’étiquette de composition.</p>
@@ -2079,9 +2080,9 @@ function applyAI(info) {
 function openSettings() {
   $('#sheetKey').value = lsGet(LS_KEY);
   $('#sheetModel').value = lsGet(LS_MODEL) || DEFAULT_MODEL;
-  $('#sheet').hidden = false;
+  $('#settingsSheet').hidden = false;
 }
-function closeSettings() { $('#sheet').hidden = true; }
+function closeSettings() { $('#settingsSheet').hidden = true; }
 
 /* ---------- copie ---------- */
 async function copyText(el, btn) {
@@ -2122,7 +2123,7 @@ function initListing() {
   $('#btnAI').addEventListener('click', askGemini);
   $('#btnSettings').addEventListener('click', openSettings);
   $('#sheetClose').addEventListener('click', closeSettings);
-  $('#sheet').addEventListener('click', (e) => { if (e.target.id === 'sheet') closeSettings(); });
+  $('#settingsSheet').addEventListener('click', (e) => { if (e.target.id === 'settingsSheet') closeSettings(); });
   $('#sheetSave').addEventListener('click', () => {
     lsSet(LS_KEY, $('#sheetKey').value.trim());
     lsSet(LS_MODEL, $('#sheetModel').value.trim());
