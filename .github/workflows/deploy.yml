@@ -1,8 +1,14 @@
-# Publie Propho sur GitHub Pages et régénère version.json à partir de
-# la constante APP_VERSION d'index.html. Une seule valeur à changer
-# pour publier une mise à jour.
+# Publie Propho sur GitHub Pages.
 #
-# À faire une fois : Settings → Pages → Source = "GitHub Actions".
+# Le numéro de version est fabriqué ici, à chaque exécution :
+#   BASE_VERSION . numéro d'exécution        →  1.0.7, 1.0.8, …
+# Il est injecté dans index.html et sw.js à la place de __BUILD__, puis
+# écrit dans version.json. Aucun fichier n'est à modifier à la main :
+# il suffit de pousser un commit pour publier une nouvelle version.
+#
+# Pour passer en 1.1, change BASE_VERSION ci-dessous. C'est tout.
+#
+# À faire une seule fois : Settings → Pages → Source = "GitHub Actions".
 
 name: Déployer Propho
 
@@ -20,31 +26,38 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+env:
+  BASE_VERSION: "1.0"
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Lire la version dans index.html
-        id: ver
+      - name: Assembler le site et injecter la version
         run: |
-          VERSION=$(grep -oP "APP_VERSION\s*=\s*'\K[0-9]+\.[0-9]+\.[0-9]+" index.html | head -1)
-          if [ -z "$VERSION" ]; then
-            echo "::error::APP_VERSION introuvable dans index.html"
+          set -euo pipefail
+          VERSION="${BASE_VERSION}.${GITHUB_RUN_NUMBER}"
+          echo "Version publiée : $VERSION"
+
+          mkdir -p _site
+          tar cf - --exclude='./.git' --exclude='./.github' --exclude='./_site' . | (cd _site && tar xf -)
+
+          for f in _site/index.html _site/sw.js; do
+            if [ ! -f "$f" ]; then echo "::error::$f manquant"; exit 1; fi
+            sed -i "s/__BUILD__/$VERSION/g" "$f"
+          done
+
+          if grep -rq "__BUILD__" _site; then
+            echo "::error::__BUILD__ n'a pas été remplacé partout"
+            grep -rl "__BUILD__" _site
             exit 1
           fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Version détectée : $VERSION"
 
-      - name: Assembler le site
-        run: |
-          mkdir -p _site
-          rsync -a --exclude '.git' --exclude '.github' --exclude '_site' ./ _site/
           printf '{"version":"%s","date":"%s","commit":"%s"}\n' \
-            "${{ steps.ver.outputs.version }}" \
-            "$(date -u +%Y-%m-%d)" \
-            "${GITHUB_SHA::7}" > _site/version.json
+            "$VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${GITHUB_SHA::7}" \
+            > _site/version.json
           cat _site/version.json
 
       - uses: actions/upload-pages-artifact@v3
