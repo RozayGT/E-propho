@@ -211,6 +211,10 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .sw[aria-pressed="true"]{box-shadow:0 0 0 2px var(--accent)}
 .sw.none{background:repeating-conic-gradient(#DDD 0 25%,#fff 0 50%) 50%/10px 10px}
 .sw.empty{background:linear-gradient(135deg,#F3F1EC,#E2DFD8)}
+.swwrap{position:relative;display:inline-block;line-height:0}
+.swkill{position:absolute;top:-5px;right:-5px;width:17px;height:17px;border-radius:50%;background:var(--ink);color:#fff;font-size:11px;line-height:1;display:grid;place-items:center;border:1.5px solid var(--card)}
+.editbar{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.editbar .mini{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line);border-radius:999px;padding:6px 11px;background:#fff;color:var(--ink-2)}
 .sw.pick{background:#fff;border-style:dashed;color:var(--ink-3);font-size:15px;line-height:1;display:grid;place-items:center}
 
 /* interrupteur */
@@ -460,6 +464,17 @@ body.is-empty .wrap{padding-bottom:28px}
       <canvas id="cvAfter"></canvas>
       <span class="tag r" id="viewTag">Retouché</span>
     </div>
+    <div class="editbar" id="editBar" hidden>
+      <div class="seg" id="segEdit">
+        <button data-edit="restore" aria-pressed="true">Restaurer</button>
+        <button data-edit="erase" aria-pressed="false">Effacer</button>
+      </div>
+      <input type="range" id="rgBrush" min="3" max="18" value="7" style="max-width:96px">
+      <span class="val" id="vBrush">7</span>
+      <button class="mini" id="editUndo">Annuler</button>
+      <button class="mini" id="editDone">Terminer</button>
+    </div>
+    <p class="hint" style="margin-top:8px" id="editHint" hidden>Passez le doigt sur les zones rouges pour les rendre au vêtement, ou sur le vêtement pour l’effacer. Le curseur règle la taille du pinceau.</p>
     <p class="hint" style="margin-top:8px">Maintenez la photo appuyée pour revoir l’originale.</p>
     <div class="readout lcd" id="readout"></div>
     <div class="notice" id="notice" hidden>
@@ -488,7 +503,7 @@ body.is-empty .wrap{padding-bottom:28px}
           <button class="sw" data-bg="concrete" data-tex="concrete"                                     aria-pressed="false" aria-label="Béton clair"></button>
           <button class="sw" data-bg="blush"    style="background:#F0DEDA"                              aria-pressed="false" aria-label="Rose poudré"></button>
           <button class="sw" data-bg="sage"     style="background:#DCE3D9"                              aria-pressed="false" aria-label="Vert sauge"></button>
-          <button class="sw empty" id="swCustom" data-bg="custom"                                     aria-pressed="false" aria-label="Votre décor"></button>
+          <span id="decorSwatches" style="display:contents"></span>
           <button class="sw pick" id="swCustomPick" type="button" aria-label="Importer un décor">+</button>
           <button class="sw none" data-bg="none"                                                        aria-pressed="false" aria-label="Garder le fond d’origine"></button>
         </div>
@@ -500,6 +515,10 @@ body.is-empty .wrap{padding-bottom:28px}
           <button data-ratio="4:5" aria-pressed="false">4:5</button>
           <button data-ratio="1:1" aria-pressed="false">1:1</button>
         </div></div>
+      </div>
+      <div class="row">
+        <span class="lcd">Cintre</span>
+        <div class="ctl"><button class="sw-toggle" id="tgHanger" aria-pressed="false" aria-label="Cintre dessiné"></button></div>
       </div>
       <div class="row">
         <span class="lcd">Ombre</span>
@@ -521,6 +540,10 @@ body.is-empty .wrap{padding-bottom:28px}
         <div class="row">
           <span class="lcd">Détourage</span>
           <div class="ctl"><input type="range" id="rgTol" min="-85" max="90" value="0"><span class="val" id="vTol">0</span></div>
+        </div>
+        <div class="row">
+          <span class="lcd">Corriger</span>
+          <div class="ctl"><button class="btn ghost" id="btnEdit" style="padding:8px 13px;font-size:12.5px">À la main</button></div>
         </div>
         <div class="row">
           <span class="lcd">Blancs</span>
@@ -771,16 +794,15 @@ const BACKGROUNDS = {
   concrete: { kind: 'tex',   tex: 'concrete' },
   blush:    { kind: 'solid', a: '#F0DEDA' },
   sage:     { kind: 'solid', a: '#DCE3D9' },
-  custom:   { kind: 'custom' },
   none:     { kind: 'none' }
 };
 
 const PRESETS = {
   // Par défaut : on détoure et on recadre, on ne réinvente pas la couleur.
-  fidele:    { bg:'white',    ratio:'3:4', shadow:true,  margin:9,  levels:0,  wb:0,  contrast:0,  vibrance:0,  sharpen:34, removeBg:true },
-  catalogue: { bg:'white',    ratio:'3:4', shadow:true,  margin:9,  levels:70, wb:45, contrast:14, vibrance:12, sharpen:42, removeBg:true },
-  doux:      { bg:'sweep',    ratio:'4:5', shadow:true,  margin:13, levels:55, wb:35, contrast:9,  vibrance:14, sharpen:34, removeBg:true },
-  naturel:   { bg:'none',     ratio:'3:4', shadow:false, margin:4,  levels:40, wb:20, contrast:6,  vibrance:4,  sharpen:30, removeBg:false }
+  fidele:    { bg:'white',    ratio:'3:4', shadow:true, hanger:false,  margin:9,  levels:0,  wb:0,  contrast:0,  vibrance:0,  sharpen:34, removeBg:true },
+  catalogue: { bg:'white',    ratio:'3:4', shadow:true, hanger:false,  margin:9,  levels:70, wb:45, contrast:14, vibrance:12, sharpen:42, removeBg:true },
+  doux:      { bg:'sweep',    ratio:'4:5', shadow:true, hanger:false,  margin:13, levels:55, wb:35, contrast:9,  vibrance:14, sharpen:34, removeBg:true },
+  naturel:   { bg:'none',     ratio:'3:4', shadow:false, hanger:false, margin:4,  levels:40, wb:20, contrast:6,  vibrance:4,  sharpen:30, removeBg:false }
 };
 
 /* ---------- état ---------- */
@@ -922,28 +944,36 @@ function candidateRefs(s) {
  */
 function floodBorders(buf, ref, tol, bg, stack) {
   const { w, h, data } = buf;
+  const n = w * h;
   let sp = 0, filled = 0;
   for (let i = 0; i < bg.length; i++) if (bg[i]) filled++;
 
-  const tolFar = tol * 2.3;     // couloir maximal autour de la référence
+  const tolFar = tol * 1.7;     // couloir maximal autour de la référence
   const tolLocal = tol * 0.5;   // écart toléré entre deux pixels voisins
+  const MAX_PAS = 26;           // longueur maximale d'une marche « à l'aveugle »
+
+  // Profondeur : nombre de pas consécutifs effectués hors du seuil strict.
+  // Traverser une veine de parquet en demande une poignée ; envahir une
+  // étiquette blanche en demanderait des centaines. La marche s'arrête donc
+  // avant d'avoir pu manger un élément clair du vêtement.
+  const pas = new Uint8Array(n);
 
   const dRef = (p) => dist(data[p], data[p + 1], data[p + 2], ref.r, ref.g, ref.b);
 
   const seedEdge = (i) => {
     if (bg[i]) return;
-    if (dRef(i << 2) < tol) { bg[i] = 1; stack[sp++] = i; filled++; }
+    if (dRef(i << 2) < tol) { bg[i] = 1; pas[i] = 0; stack[sp++] = i; filled++; }
   };
 
   const spread = (j, i) => {
     if (bg[j]) return;
     const pj = j << 2;
     const d = dRef(pj);
-    if (d < tol) { bg[j] = 1; stack[sp++] = j; filled++; return; }
-    if (d < tolFar) {
+    if (d < tol) { bg[j] = 1; pas[j] = 0; stack[sp++] = j; filled++; return; }
+    if (d < tolFar && pas[i] < MAX_PAS) {
       const pi = i << 2;
       if (dist(data[pj], data[pj + 1], data[pj + 2], data[pi], data[pi + 1], data[pi + 2]) < tolLocal) {
-        bg[j] = 1; stack[sp++] = j; filled++;
+        bg[j] = 1; pas[j] = pas[i] + 1; stack[sp++] = j; filled++;
       }
     }
   };
@@ -1327,49 +1357,93 @@ function unsharp(rgba, w, h, amount) {
    image d'aperçu serait bien trop coûteux sur téléphone.
    ============================================================= */
 const TEX_CACHE = {};
-let customBg = null;        // canvas du décor importé
-const CUSTOM_KEY = 'decor';
+let decors = [];            // décors importés : [{ id, canvas }]
+const LS_DECORS = 'propho.decors';
+const MAX_DECORS = 6;
 
-/** Charge le décor personnalisé depuis IndexedDB au démarrage. */
-async function loadCustomBg() {
-  try {
-    const db = await idb();
-    const rec = await reqDone(db.transaction('photos').objectStore('photos').get(CUSTOM_KEY));
-    if (rec && rec.blobs && rec.blobs[0]) await setCustomBg(rec.blobs[0], false);
-  } catch (e) { /* pas de décor enregistré */ }
+const decorIds = () => { try { return JSON.parse(lsGet(LS_DECORS) || '[]'); } catch (e) { return []; } };
+
+async function loadDecors() {
+  const ids = decorIds();
+  for (const id of ids) {
+    try {
+      const db = await idb();
+      const rec = await reqDone(db.transaction('photos').objectStore('photos').get('decor:' + id));
+      if (rec && rec.blobs && rec.blobs[0]) decors.push({ id, canvas: await toCanvas(rec.blobs[0]) });
+    } catch (e) { /* décor illisible, on passe */ }
+  }
+  renderDecorSwatches();
 }
 
-/** Installe un décor : décodé, réduit, puis conservé pour les prochaines fois. */
-async function setCustomBg(blobOrFile, persist) {
+async function toCanvas(blobOrFile) {
   const src = await decode(blobOrFile);
-  const k = Math.min(1, 1400 / Math.max(src.naturalWidth || src.width, src.naturalHeight || src.height));
+  const sw = src.naturalWidth || src.width, sh = src.naturalHeight || src.height;
+  const k = Math.min(1, 1400 / Math.max(sw, sh));
   const c = document.createElement('canvas');
-  c.width = Math.round((src.naturalWidth || src.width) * k);
-  c.height = Math.round((src.naturalHeight || src.height) * k);
+  c.width = Math.round(sw * k); c.height = Math.round(sh * k);
   const x = c.getContext('2d');
   x.imageSmoothingQuality = 'high';
   x.drawImage(src, 0, 0, c.width, c.height);
   if (src.close) src.close();
-  customBg = c;
+  return c;
+}
 
-  const sw = $('#swCustom');
-  if (sw) {
-    const mini = document.createElement('canvas');
-    mini.width = mini.height = 60;
-    const s2 = Math.min(c.width, c.height);
-    mini.getContext('2d').drawImage(c, (c.width - s2) / 2, (c.height - s2) / 2, s2, s2, 0, 0, 60, 60);
-    sw.style.backgroundImage = `url(${mini.toDataURL('image/jpeg', 0.8)})`;
-    sw.style.backgroundSize = 'cover';
-    sw.classList.remove('empty');
-  }
+async function addDecor(file) {
+  if (decors.length >= MAX_DECORS) { toast(`Six décors au maximum. Supprimez-en un.`); return; }
+  const canvas = await toCanvas(file);
+  const id = 'd' + Date.now();
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.86));
+  const db = await idb();
+  const t = db.transaction('photos', 'readwrite');
+  t.objectStore('photos').put({ id: 'decor:' + id, blobs: [blob] });
+  await txDone(t);
+  decors.push({ id, canvas });
+  lsSet(LS_DECORS, JSON.stringify(decors.map(d => d.id)));
+  renderDecorSwatches();
+  return id;
+}
 
-  if (persist) {
-    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.86));
+async function removeDecor(id) {
+  decors = decors.filter(d => d.id !== id);
+  lsSet(LS_DECORS, JSON.stringify(decors.map(d => d.id)));
+  try {
     const db = await idb();
     const t = db.transaction('photos', 'readwrite');
-    t.objectStore('photos').put({ id: CUSTOM_KEY, blobs: [blob] });
+    t.objectStore('photos').delete('decor:' + id);
     await txDone(t);
-  }
+  } catch (e) { /* déjà parti */ }
+  // Les photos qui utilisaient ce décor repassent en blanc.
+  state.assets.forEach(a => { if (a.settings.bg === 'decor:' + id) a.settings.bg = 'white'; });
+  renderDecorSwatches();
+  syncControls();
+  drawViewer(false);
+}
+
+/** Vignette carrée d'un décor, pour la pastille. */
+function decorThumb(canvas) {
+  const m = document.createElement('canvas');
+  m.width = m.height = 64;
+  const s2 = Math.min(canvas.width, canvas.height);
+  m.getContext('2d').drawImage(canvas, (canvas.width - s2) / 2, (canvas.height - s2) / 2, s2, s2, 0, 0, 64, 64);
+  return m.toDataURL('image/jpeg', 0.8);
+}
+
+function renderDecorSwatches() {
+  const host = $('#decorSwatches');
+  if (!host) return;
+  host.innerHTML = decors.map(d => `
+    <span class="swwrap">
+      <button class="sw" data-bg="decor:${d.id}" aria-pressed="false" aria-label="Votre décor"
+              style="background-image:url(${decorThumb(d.canvas)});background-size:cover"></button>
+      <button class="swkill" data-kill="${d.id}" aria-label="Supprimer ce décor">×</button>
+    </span>`).join('');
+  host.querySelectorAll('[data-kill]').forEach(b =>
+    b.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!confirm('Supprimer ce décor ?')) return;
+      await removeDecor(b.dataset.kill);
+      toast('Décor supprimé');
+    }));
 }
 
 /** Recadrage « couvrant » : le décor remplit le cadre sans se déformer. */
@@ -1484,7 +1558,7 @@ function bboxOf(alpha, w, h) {
 }
 
 function paintBackground(ctx, W, H, key) {
-  const bgDef = BACKGROUNDS[key] || BACKGROUNDS.white;
+  const bgDef = String(key).startsWith('decor:') ? { kind: 'custom' } : (BACKGROUNDS[key] || BACKGROUNDS.white);
   if (bgDef.kind === 'sweep') {
     const g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, bgDef.a); g.addColorStop(0.55, '#FAF9F7'); g.addColorStop(1, bgDef.b);
@@ -1493,8 +1567,9 @@ function paintBackground(ctx, W, H, key) {
     r.addColorStop(0, 'rgba(255,255,255,.85)'); r.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = r; ctx.fillRect(0, 0, W, H);
   } else if (bgDef.kind === 'custom') {
-    if (customBg) {
-      drawCover(ctx, customBg, W, H);
+    const d = decors.find(x => 'decor:' + x.id === key);
+    if (d) {
+      drawCover(ctx, d.canvas, W, H);
       // Voile clair derrière le vêtement : un décor chargé noierait la pièce.
       const veil = ctx.createRadialGradient(W / 2, H * 0.48, 0, W / 2, H * 0.5, Math.max(W, H) * 0.52);
       veil.addColorStop(0, 'rgba(255,255,255,.42)');
@@ -1517,6 +1592,67 @@ function paintBackground(ctx, W, H, key) {
     ctx.fillStyle = bgDef.a || '#FFFFFF';
     ctx.fillRect(0, 0, W, H);
   }
+}
+
+/**
+ * Cintre dessiné derrière le vêtement. Les bras s'alignent sur la ligne
+ * d'épaules, le tissu recouvre la barre : seuls le crochet et les pointes
+ * dépassent, ce qui donne l'illusion sans rien changer au vêtement.
+ */
+function drawHanger(ctx, W, H, dx, dy, dw, dh, cat) {
+  const bas = cat === 'pantalon' || cat === 'jupe';
+  const cx = dx + dw / 2;
+  const ep = Math.max(2.5, dw * 0.017);
+  const demi = dw * (bas ? 0.40 : 0.46);
+  const barY = dy + dh * (bas ? 0.035 : 0.075);
+  const apexY = barY - dh * (bas ? 0.005 : 0.055);
+
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const bois = ctx.createLinearGradient(cx - demi, 0, cx + demi, 0);
+  bois.addColorStop(0, '#A97F4E');
+  bois.addColorStop(0.5, '#C79B68');
+  bois.addColorStop(1, '#A97F4E');
+  ctx.strokeStyle = bois;
+  ctx.lineWidth = ep;
+
+  if (bas) {
+    ctx.beginPath();
+    ctx.moveTo(cx - demi, barY);
+    ctx.lineTo(cx + demi, barY);
+    ctx.stroke();
+    ctx.fillStyle = '#9AA0A6';
+    for (const sgn of [-1, 1]) {
+      ctx.fillRect(cx + sgn * demi * 0.66 - ep * 0.8, barY - ep * 0.4, ep * 1.6, ep * 3);
+    }
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(cx - demi, barY);
+    ctx.quadraticCurveTo(cx - demi * 0.46, apexY + dh * 0.004, cx, apexY);
+    ctx.quadraticCurveTo(cx + demi * 0.46, apexY + dh * 0.004, cx + demi, barY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - demi * 0.94, barY);
+    ctx.lineTo(cx + demi * 0.94, barY);
+    ctx.stroke();
+  }
+
+  // crochet métallique
+  const hy = bas ? barY : apexY;
+  const r = Math.max(6, dw * 0.032);
+  ctx.strokeStyle = '#9DA3A8';
+  ctx.lineWidth = ep * 0.6;
+  ctx.beginPath();
+  ctx.moveTo(cx, hy);
+  ctx.lineTo(cx, hy - dh * 0.045);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx + r, hy - dh * 0.045, r, Math.PI, 0, false);
+  ctx.lineTo(cx + 2 * r, hy - dh * 0.045 + r * 0.55);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawContactShadow(ctx, cx, baseY, rx, ry) {
@@ -1574,6 +1710,7 @@ function compose(src, s, longEdge) {
   const dx = (W - dw) / 2;
   const dy = (H - dh) / 2 - (s.shadow ? H * 0.022 : 0);
 
+  if (s.hanger) drawHanger(ctx, W, H, dx, dy, dw, dh, listing.cat);
   if (s.shadow) {
     drawContactShadow(ctx, W / 2, dy + dh + H * 0.012, dw * 0.46, dh * 0.05 + H * 0.012);
   }
@@ -1796,7 +1933,7 @@ function drawViewer(fast) {
 
 /* Appui maintenu : on montre l'originale. Un curseur laissait croire qu'on
    pouvait retoucher la moitié d'une photo, ce qui n'a aucun sens ici. */
-let peeking = false, peekX = 0, peekY = 0;
+let peeking = false, peekX = 0, peekY = 0, brushing = false;
 
 function setPeek(on) {
   peeking = on;
@@ -1806,15 +1943,20 @@ function setPeek(on) {
 
 (function bindPeek() {
   els.viewer.addEventListener('pointerdown', (e) => {
+    if (edit.on) { brushing = true; editStroke(e.clientX, e.clientY, true); e.preventDefault(); return; }
     peekX = e.clientX; peekY = e.clientY;
     setPeek(true);
   });
   // Si le doigt part en défilement, on rend la main sans bloquer la page.
   window.addEventListener('pointermove', (e) => {
+    if (edit.on) { if (brushing) { editStroke(e.clientX, e.clientY, false); e.preventDefault(); } return; }
     if (peeking && Math.hypot(e.clientX - peekX, e.clientY - peekY) > 12) setPeek(false);
   }, { passive: true });
   ['pointerup', 'pointercancel'].forEach(t =>
-    window.addEventListener(t, () => { if (peeking) setPeek(false); }));
+    window.addEventListener(t, () => {
+      if (brushing) { brushing = false; editEnd(); return; }
+      if (peeking) setPeek(false);
+    }));
 })();
 
 function drawReadout(a) {
@@ -1859,6 +2001,7 @@ function syncControls() {
   $$('#swatches .sw').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.bg === s.bg)));
   $$('#segRatio button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ratio === s.ratio)));
   $('#tgShadow').setAttribute('aria-pressed', String(!!s.shadow));
+  $('#tgHanger').setAttribute('aria-pressed', String(!!s.hanger));
   $$('#presets .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.preset === s._preset)));
 }
 
@@ -1884,7 +2027,6 @@ SLIDERS.forEach(([id, key, vid, fmt]) => {
 $('#swatches').addEventListener('click', (e) => {
   const b = e.target.closest('.sw'); if (!b) return;
   const a = current(); if (!a) return;
-  if (b.dataset.bg === 'custom' && !customBg) { $('#fileBg').click(); return; }
   a.settings.bg = b.dataset.bg;
   a.settings.removeBg = b.dataset.bg !== 'none';
   a._touched = true;
@@ -1896,6 +2038,13 @@ $('#segRatio').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   const a = current(); if (!a) return;
   a.settings.ratio = b.dataset.ratio;
+  syncControls(); drawViewer(false); refreshThumb(a);
+});
+
+$('#tgHanger').addEventListener('click', () => {
+  const a = current(); if (!a) return;
+  a.settings.hanger = !a.settings.hanger;
+  a.settings._preset = null;
   syncControls(); drawViewer(false); refreshThumb(a);
 });
 
@@ -3083,6 +3232,141 @@ function updateFraming() {
 }
 
 
+
+/* =============================================================
+   CORRECTION MANUELLE DU DÉTOURAGE
+   Une étiquette blanche sur fond blanc est indécidable au pixel près :
+   aucun seuil ne la distingue du fond. Un appui suffit à la rendre.
+   ============================================================= */
+const edit = { on: false, mode: 'restore', taille: 7, undo: [], peint: false };
+
+/** Peint un disque à bord doux dans un canal alpha. */
+function paintDisc(arr, w, h, cx, cy, r, val) {
+  const x0 = Math.max(0, (cx - r) | 0), x1 = Math.min(w - 1, (cx + r) | 0);
+  const y0 = Math.max(0, (cy - r) | 0), y1 = Math.min(h - 1, (cy + r) | 0);
+  const r2 = r * r, rin = r * 0.72, rin2 = rin * rin;
+  for (let y = y0; y <= y1; y++) {
+    const dy = y - cy;
+    for (let x = x0; x <= x1; x++) {
+      const dx = x - cx, d2 = dx * dx + dy * dy;
+      if (d2 > r2) continue;
+      const i = y * w + x;
+      if (d2 <= rin2) { arr[i] = val; continue; }
+      const t = 1 - (Math.sqrt(d2) - rin) / (r - rin);   // bord progressif
+      arr[i] = arr[i] + (val - arr[i]) * t;
+    }
+  }
+}
+
+/**
+ * Un coup de pinceau. On peint à la fois dans le masque de travail et dans
+ * celui de l'aperçu, pour que le retour visuel soit immédiat ; les masques
+ * dérivés sont recalculés au relâchement seulement.
+ */
+function brushAt(a, fx, fy) {
+  const val = edit.mode === 'restore' ? 255 : 0;
+  const rw = (edit.taille / 100) * Math.min(a.work.w, a.work.h);
+  const rp = (edit.taille / 100) * Math.min(a.prev.w, a.prev.h);
+  paintDisc(a.alpha, a.work.w, a.work.h, fx * a.work.w, fy * a.work.h, rw, val);
+  paintDisc(a.alphaPrev, a.prev.w, a.prev.h, fx * a.prev.w, fy * a.prev.h, rp, val);
+  edit.peint = true;
+}
+
+/** Recalcule les masques dérivés après une correction. */
+function refreshMasks(a) {
+  a.alphaPrev = resampleAlpha(a.alpha, a.work.w, a.work.h, a.prev.w, a.prev.h);
+  a.alphaScrub = resampleAlpha(a.alpha, a.work.w, a.work.h, a.scrub.w, a.scrub.h);
+  a.bbox = bboxOf(a.alpha, a.work.w, a.work.h);
+  a.bboxPrev = bboxOf(a.alphaPrev, a.prev.w, a.prev.h);
+  a.bboxScrub = bboxOf(a.alphaScrub, a.scrub.w, a.scrub.h);
+}
+
+/** Vue de correction : la photo d'origine, zones retirées teintées. */
+function drawEdit() {
+  const a = current(); if (!a || !a.alpha) return;
+  const { w, h, data } = a.prev;
+  const cv = els.cvBefore;
+  cv.width = w; cv.height = h;
+  const id = new ImageData(new Uint8ClampedArray(data), w, h);
+  for (let i = 0; i < w * h; i++) {
+    if (a.alphaPrev[i] < 128) {
+      const p = i << 2;
+      id.data[p]     = id.data[p] * 0.42 + 226 * 0.58;
+      id.data[p + 1] = id.data[p + 1] * 0.42 + 78 * 0.58;
+      id.data[p + 2] = id.data[p + 2] * 0.42 + 78 * 0.58;
+    }
+  }
+  cv.getContext('2d').putImageData(id, 0, 0);
+}
+
+function enterEdit() {
+  els.viewer.style.touchAction = 'none';
+  const a = current(); if (!a || !a.alpha) { toast('Chargez d’abord une photo.'); return; }
+  edit.on = true; edit.undo = [];
+  els.cvAfter.style.display = 'none';
+  els.viewTag.textContent = 'Correction';
+  $('#editBar').hidden = false;
+  $('#editHint').hidden = false;
+  drawEdit();
+}
+
+function leaveEdit() {
+  els.viewer.style.touchAction = '';
+  edit.on = false;
+  els.cvAfter.style.display = '';
+  els.viewTag.textContent = 'Retouché';
+  $('#editBar').hidden = true;
+  $('#editHint').hidden = true;
+  const a = current();
+  if (a) refreshThumb(a);
+  drawViewer(false);
+}
+
+let brushRaf = false;
+function editStroke(clientX, clientY, debut) {
+  const a = current(); if (!a || !a.alpha) return;
+  const r = els.viewer.getBoundingClientRect();
+  const fx = (clientX - r.left) / r.width;
+  const fy = (clientY - r.top) / r.height;
+  if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return;
+  if (debut) {
+    edit.undo.push(a.alpha.slice(0));
+    if (edit.undo.length > 6) edit.undo.shift();
+  }
+  brushAt(a, fx, fy);
+  if (!brushRaf) {
+    brushRaf = true;
+    requestAnimationFrame(() => { brushRaf = false; drawEdit(); });
+  }
+}
+
+function editEnd() {
+  if (!edit.peint) return;
+  edit.peint = false;
+  const a = current(); if (!a) return;
+  a.bbox = bboxOf(a.alpha, a.work.w, a.work.h);
+  a.alphaScrub = resampleAlpha(a.alpha, a.work.w, a.work.h, a.scrub.w, a.scrub.h);
+  a.bboxPrev = bboxOf(a.alphaPrev, a.prev.w, a.prev.h);
+  a.bboxScrub = bboxOf(a.alphaScrub, a.scrub.w, a.scrub.h);
+}
+
+function initEdit() {
+  $('#btnEdit').addEventListener('click', () => edit.on ? leaveEdit() : enterEdit());
+  $('#editDone').addEventListener('click', leaveEdit);
+  $('#segEdit').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    edit.mode = b.dataset.edit;
+    $$('#segEdit button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  });
+  $('#rgBrush').addEventListener('input', (e) => { edit.taille = +e.target.value; $('#vBrush').textContent = e.target.value; });
+  $('#editUndo').addEventListener('click', () => {
+    const a = current(); if (!a || !edit.undo.length) { toast('Rien à annuler.'); return; }
+    a.alpha = edit.undo.pop();
+    refreshMasks(a);
+    drawEdit();
+  });
+}
+
 /* =============================================================
    ARCHIVE DES ANNONCES
    Les photos finales et la fiche sont conservées dans IndexedDB, sur
@@ -3293,13 +3577,13 @@ function initArchive() {
     e.target.value = '';
     if (!f) return;
     try {
-      await setCustomBg(f, true);
+      const id = await addDecor(f);
       const a = current();
-      if (a) { a.settings.bg = 'custom'; a.settings.removeBg = true; a._touched = true; syncControls(); drawViewer(false); refreshThumb(a); }
-      toast('Décor enregistré. Il reste disponible pour vos prochaines annonces.');
+      if (a && id) { a.settings.bg = 'decor:' + id; a.settings.removeBg = true; a._touched = true; syncControls(); drawViewer(false); refreshThumb(a); }
+      toast('Décor enregistré, disponible pour vos prochaines annonces.');
     } catch (err) { toast('Cette image n’a pas pu être lue.'); }
   });
-  loadCustomBg();
+  loadDecors();
 }
 
 /* =============================================================
@@ -3431,6 +3715,7 @@ updateStatus();
 initListing();
 initTryon();
 initArchive();
+initEdit();
 $('#verNum').textContent = IS_DEV ? 'dev' : APP_VERSION;
 checkUpdate(true);
 
