@@ -3301,16 +3301,18 @@ function brushAt(a, fx, fy) {
   const rw = (edit.taille / 100) * Math.min(a.work.w, a.work.h);
   const rp = (edit.taille / 100) * Math.min(a.prev.w, a.prev.h);
 
+  const rs = (edit.taille / 100) * Math.min(a.scrub.w, a.scrub.h);
+
   if (edit.mode === 'restore') {
     const tol = a.tol || 34;
     paintSmart(a.alpha, a.work, fx * a.work.w, fy * a.work.h, rw, a.ref, tol);
     paintSmart(a.alphaPrev, a.prev, fx * a.prev.w, fy * a.prev.h, rp, a.ref, tol);
-  } else if (edit.mode === 'restoreAll') {
-    paintDisc(a.alpha, a.work.w, a.work.h, fx * a.work.w, fy * a.work.h, rw, 255);
-    paintDisc(a.alphaPrev, a.prev.w, a.prev.h, fx * a.prev.w, fy * a.prev.h, rp, 255);
+    paintSmart(a.alphaScrub, a.scrub, fx * a.scrub.w, fy * a.scrub.h, rs, a.ref, tol);
   } else {
-    paintDisc(a.alpha, a.work.w, a.work.h, fx * a.work.w, fy * a.work.h, rw, 0);
-    paintDisc(a.alphaPrev, a.prev.w, a.prev.h, fx * a.prev.w, fy * a.prev.h, rp, 0);
+    const val = edit.mode === 'restoreAll' ? 255 : 0;
+    paintDisc(a.alpha, a.work.w, a.work.h, fx * a.work.w, fy * a.work.h, rw, val);
+    paintDisc(a.alphaPrev, a.prev.w, a.prev.h, fx * a.prev.w, fy * a.prev.h, rp, val);
+    paintDisc(a.alphaScrub, a.scrub.w, a.scrub.h, fx * a.scrub.w, fy * a.scrub.h, rs, val);
   }
   edit.peint = true;
 }
@@ -3324,15 +3326,50 @@ function refreshMasks(a) {
   a.bboxScrub = bboxOf(a.alphaScrub, a.scrub.w, a.scrub.h);
 }
 
+/**
+ * Retire les îlots minuscules rendus par erreur. Sur un parquet, les veines
+ * sombres s'écartent autant de la couleur moyenne du bois que l'étiquette :
+ * le pinceau les ramène en mouchetures. Une étiquette est une masse d'un
+ * seul tenant, une veine ne l'est pas.
+ */
+function cleanSpecks(a, minFrac) {
+  const { w, h } = a.work;
+  const n = w * h;
+  const alpha = a.alpha;
+  const min = n * minFrac;
+  const seen = new Uint8Array(n);
+  const st = new Int32Array(n);
+  const comp = new Int32Array(n);
+
+  for (let s0 = 0; s0 < n; s0++) {
+    if (seen[s0] || alpha[s0] <= 128) continue;
+    let cn = 0, sp = 0;
+    st[sp++] = s0; seen[s0] = 1;
+    while (sp > 0) {
+      const i = st[--sp];
+      comp[cn++] = i;
+      const x = i % w, y = (i / w) | 0;
+      const tr = (j) => { if (!seen[j] && alpha[j] > 128) { seen[j] = 1; st[sp++] = j; } };
+      if (x > 0)     tr(i - 1);
+      if (x < w - 1) tr(i + 1);
+      if (y > 0)     tr(i - w);
+      if (y < h - 1) tr(i + w);
+    }
+    if (cn < min) for (let k = 0; k < cn; k++) alpha[comp[k]] = 0;
+  }
+}
+
 /** Vue de correction : la photo d'origine, zones retirées teintées. */
-function drawEdit() {
+function drawEdit(fast) {
   const a = current(); if (!a || !a.alpha) return;
-  const { w, h, data } = a.prev;
+  const buf = fast ? a.scrub : a.prev;
+  const mask = fast ? a.alphaScrub : a.alphaPrev;
+  const { w, h, data } = buf;
   const cv = els.cvBefore;
   cv.width = w; cv.height = h;
   const id = new ImageData(new Uint8ClampedArray(data), w, h);
   for (let i = 0; i < w * h; i++) {
-    if (a.alphaPrev[i] < 128) {
+    if (mask[i] < 128) {
       const p = i << 2;
       id.data[p]     = id.data[p] * 0.42 + 226 * 0.58;
       id.data[p + 1] = id.data[p + 1] * 0.42 + 78 * 0.58;
@@ -3350,7 +3387,8 @@ function enterEdit() {
   els.viewTag.textContent = 'Correction';
   $('#editBar').hidden = false;
   $('#editHint').hidden = false;
-  drawEdit();
+  drawEdit(false);
+  els.viewer.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function leaveEdit() {
@@ -3379,7 +3417,7 @@ function editStroke(clientX, clientY, debut) {
   brushAt(a, fx, fy);
   if (!brushRaf) {
     brushRaf = true;
-    requestAnimationFrame(() => { brushRaf = false; drawEdit(); });
+    requestAnimationFrame(() => { brushRaf = false; drawEdit(true); });
   }
 }
 
@@ -3387,10 +3425,9 @@ function editEnd() {
   if (!edit.peint) return;
   edit.peint = false;
   const a = current(); if (!a) return;
-  a.bbox = bboxOf(a.alpha, a.work.w, a.work.h);
-  a.alphaScrub = resampleAlpha(a.alpha, a.work.w, a.work.h, a.scrub.w, a.scrub.h);
-  a.bboxPrev = bboxOf(a.alphaPrev, a.prev.w, a.prev.h);
-  a.bboxScrub = bboxOf(a.alphaScrub, a.scrub.w, a.scrub.h);
+  if (edit.mode === 'restore') cleanSpecks(a, 0.0012);
+  refreshMasks(a);
+  drawEdit(false);
 }
 
 function initEdit() {
@@ -3406,7 +3443,7 @@ function initEdit() {
     const a = current(); if (!a || !edit.undo.length) { toast('Rien à annuler.'); return; }
     a.alpha = edit.undo.pop();
     refreshMasks(a);
-    drawEdit();
+    drawEdit(false);
   });
 }
 
