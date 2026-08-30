@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#E7E5E0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png" type="image/png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Propho">
 <title>Propho — visuels catalogue pour Vinted</title>
 <meta name="description" content="Transforme des photos de vêtements prises au téléphone en visuels de qualité e-commerce. Tout se passe dans le navigateur, aucune photo n'est envoyée.">
 <style>
@@ -279,6 +286,10 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border:1px solid var(
   .drop h1{font-size:32px}
   .frame,.frame .thumb{width:82px}
 }
+@media (display-mode:standalone){
+  body{overscroll-behavior:none;user-select:none;-webkit-user-select:none}
+  .wrap{padding-bottom:200px}
+}
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.001ms !important;transition-duration:.001ms !important}
 }
@@ -446,9 +457,12 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border:1px solid var(
 'use strict';
 
 /* ---------- version ----------
-   Source unique de vérité. Le workflow GitHub Actions relit cette ligne
-   pour générer version.json : une seule valeur à changer par publication. */
-const APP_VERSION = '1.0.0';
+   __BUILD__ est remplacé au déploiement par le workflow GitHub Actions,
+   qui écrit la même valeur dans version.json. Rien à modifier à la main :
+   chaque push produit un numéro de version, et l'app le détecte. */
+const RAW_VERSION = '__BUILD__';
+const APP_VERSION = /^\d/.test(RAW_VERSION) ? RAW_VERSION : '0.0.0';
+const IS_DEV = APP_VERSION === '0.0.0';
 
 /* ---------- constantes ---------- */
 const WORK_MAX = 1400;   // résolution d'analyse et de détourage
@@ -1573,7 +1587,7 @@ async function applyUpdate(v) {
 }
 
 async function checkUpdate(force) {
-  if (location.protocol === 'file:') { setVerState('fresh', 'hors ligne'); return; }
+  if (location.protocol === 'file:' || IS_DEV) { setVerState('fresh', 'version locale'); return; }
   const now = Date.now();
   if (!force && now - lastCheck < UPDATE_INTERVAL) return;
   lastCheck = now;
@@ -1596,6 +1610,17 @@ async function checkUpdate(force) {
   }
 }
 
+/* Service worker : rend l'app installable sur l'écran d'accueil et
+   utilisable hors ligne. Stratégie réseau d'abord, cache en secours,
+   pour qu'une nouvelle version arrive dès qu'elle est en ligne. */
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      setInterval(() => reg.update().catch(() => {}), UPDATE_INTERVAL);
+    }).catch(() => { /* pas bloquant */ });
+  });
+}
+
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(false); });
 window.addEventListener('online', () => checkUpdate(true));
 setInterval(() => checkUpdate(false), UPDATE_INTERVAL);
@@ -1606,7 +1631,7 @@ PRESETS.catalogue._preset = 'catalogue';
 PRESETS.doux._preset = 'doux';
 PRESETS.naturel._preset = 'naturel';
 updateStatus();
-$('#verNum').textContent = APP_VERSION;
+$('#verNum').textContent = IS_DEV ? 'dev' : APP_VERSION;
 checkUpdate(true);
 
 </script>
