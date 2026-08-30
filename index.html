@@ -659,32 +659,40 @@ body.is-empty .wrap{padding-bottom:28px}
 
     <ol class="steps">
       <li>
-        <b>Posez le vêtement bien à plat</b>
-        <span>Sur un drap uni, de préférence clair. Lissez les plis à la main. Plus le fond est uni, plus le détourage est propre.</span>
+        <b>Posez le vêtement à plat, sur un drap uni</b>
+        <span>De préférence clair. Lissez les plis à la main. Sur un parquet ou un tapis à motifs, le détourage laisse parfois des morceaux&nbsp;: un drap règle le problème à la source.</span>
       </li>
       <li>
         <b>Mettez-vous près d’une fenêtre</b>
-        <span>Lumière du jour, sans soleil direct. Ne vous placez pas entre la fenêtre et le vêtement : votre ombre se verrait.</span>
+        <span>Lumière du jour, sans soleil direct. Ne vous placez pas entre la fenêtre et le vêtement, sinon votre ombre se verra.</span>
       </li>
       <li>
         <b>Photographiez à la verticale, au-dessus</b>
-        <span>Téléphone parallèle au sol, le vêtement entier dans le cadre avec un peu d’air autour.</span>
+        <span>Téléphone parallèle au sol, la pièce entière dans le cadre avec un peu d’air autour.</span>
       </li>
       <li>
         <b>Ajoutez une photo de l’étiquette</b>
-        <span>En gros plan et bien nette. C’est elle qui permet à l’IA de lire la marque, la taille et la composition.</span>
+        <span>En gros plan et bien nette. C’est elle qui permet à l’assistant de lire la marque, la taille et la composition.</span>
       </li>
       <li>
-        <b>Choisissez un rendu</b>
-        <span><em>Couleurs fidèles</em> ne touche pas aux teintes, c’est le plus sûr pour vendre. <em>Éclatant</em> réveille une photo terne. <em>Sans retouche</em> garde votre fond d’origine.</span>
+        <b>Choisissez un rendu et un fond</b>
+        <span><em>Couleurs fidèles</em> ne touche ni aux teintes ni à la lumière, c’est le plus sûr pour vendre. <em>Éclatant</em> réveille une photo terne. <em>Sans retouche</em> garde votre fond d’origine. Neuf fonds sont proposés, et vous pouvez importer vos propres décors.</span>
       </li>
       <li>
-        <b>Remplissez la fiche, puis exportez</b>
-        <span>Le titre et la description se copient en un appui. Le prix proposé est un point de départ : comparez avec trois annonces similaires.</span>
+        <b>Corrigez à la main si besoin</b>
+        <span>Dans <em>Réglages fins → Corriger</em>. Passez le doigt sur les zones rouges pour les rendre au vêtement. Le mode <em>Objet</em> ramène l’étiquette sans ramener le fond autour.</span>
+      </li>
+      <li>
+        <b>Remplissez la fiche</b>
+        <span>Les couleurs sont mesurées sur le vêtement. Le reste se remplit en quelques appuis, ou d’un coup avec l’assistant si vous avez configuré une clé. Le prix proposé est un point de départ&nbsp;: comparez avec trois annonces similaires.</span>
+      </li>
+      <li>
+        <b>Exportez, puis enregistrez l’annonce</b>
+        <span>L’export ouvre le partage iOS&nbsp;: choisissez <em>Enregistrer l’image</em> pour envoyer les photos dans votre galerie. L’annonce enregistrée se retrouve dans l’icône boîte, prête à être republiée si la pièce ne part pas.</span>
       </li>
     </ol>
 
-    <p class="sheettext small">Vos photos ne quittent votre téléphone que si vous appuyez sur « Remplir avec l’IA ».</p>
+    <p class="sheettext small">Tout le traitement se fait sur votre téléphone. Vos photos ne partent chez Google que si vous appuyez sur « Remplir avec l’IA », et uniquement à ce moment-là.</p>
     <div class="sheetact"><button class="btn" id="helpDone">J’ai compris</button></div>
   </div>
 </div>
@@ -1048,7 +1056,7 @@ function segment(buf, tolAdj) {
   const refStd = rN > 50 ? Math.sqrt(Math.max(0, rY2 / rN - (rY / rN) ** 2)) : 6;
   const seuilStd = refStd * 1.5 + 8;
 
-  const minHole = n * 0.008;
+  const minHole = n * 0.0015;
   const tolHole = tol * 0.62;
   const comp = new Int32Array(n);
   const seenHole = new Uint8Array(n);
@@ -1091,13 +1099,12 @@ function segment(buf, tolAdj) {
       sY += l; sY2 += l * l; nb++;
     }
     const ecartType = nb ? Math.sqrt(Math.max(0, sY2 / nb - (sY / nb) ** 2)) : 0;
-    const aire = (hx1 - hx0 + 1) * (hy1 - hy0 + 1);
-    const remplissage = cn / Math.max(1, aire);
-
+    // Deux critères, tous deux indépendants de la forme : une bande de parquet
+    // fine et courbe doit partir aussi bien qu'un grand trou rectangulaire.
+    // Une étiquette, elle, échoue sur la couleur ou sur la texture.
     const vraiTrou = cn >= minHole
       && sumD / cn < tol * 0.42     // vraiment la couleur du fond
-      && ecartType < seuilStd       // pas plus texturé que le fond lui-même
-      && remplissage > 0.72;        // une masse pleine, pas une forme trouée
+      && ecartType < seuilStd;      // pas plus texturé que le fond lui-même
     if (vraiTrou) { for (let k = 0; k < cn; k++) bg[comp[k]] = 1; filled += cn; }
   }
 
@@ -3522,7 +3529,7 @@ $('#btnHome').addEventListener('click', () => {
 });
 
 /* --- tutoriel --- */
-const LS_SEEN = 'propho.help.seen';
+const LS_SEEN = 'propho.help.seen.2';
 function openHelp() { $('#helpSheet').hidden = false; }
 function closeHelp() { $('#helpSheet').hidden = true; lsSet(LS_SEEN, '1'); }
 $('#btnHelp').addEventListener('click', openHelp);
