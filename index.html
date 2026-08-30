@@ -525,7 +525,7 @@ body.is-empty .wrap{padding-bottom:28px}
       <div class="row">
         <span class="lcd">Cette photo</span>
         <div class="ctl">
-          <button class="btn ghost" id="btnSaveOne" style="padding:9px 14px;font-size:13px">Enregistrer le JPEG</button>
+          <button class="btn ghost" id="btnSaveOne" style="padding:9px 14px;font-size:13px">Enregistrer dans Photos</button>
         </div>
       </div>
     </div>
@@ -607,7 +607,7 @@ body.is-empty .wrap{padding-bottom:28px}
       </div>
     </div>
 
-    <p class="hint" id="saveHint">Sur iPhone, si le téléchargement est bloqué&nbsp;: <b>appui long sur l’image retouchée → « Ajouter aux photos »</b>.</p>
+    <p class="hint" id="saveHint">L’export ouvre la feuille de partage iOS&nbsp;: choisissez <b>« Enregistrer l’image »</b> pour envoyer les photos dans votre galerie. Sur ordinateur, elles se téléchargent normalement.</p>
   </section>
 
   <footer class="colophon">
@@ -1721,6 +1721,59 @@ function canvasToBlob(cv) {
   return new Promise(res => cv.toBlob(b => res(b), 'image/jpeg', JPEG_Q));
 }
 
+/**
+ * Enregistre des images. Sur iPhone, la feuille de partage système propose
+ * « Enregistrer l'image », qui écrit directement dans Photos — un site web
+ * ne peut pas y accéder autrement.
+ *
+ * Safari exige que share() parte d'un geste récent. Le rendu des JPEG prend
+ * parfois plus longtemps que ce délai : dans ce cas on garde les fichiers
+ * sous le coude et le bouton suivant les partage sans aucun calcul.
+ */
+let pendingShare = null;
+
+function canShareFiles(files) {
+  return !!(navigator.canShare && navigator.share && navigator.canShare({ files }));
+}
+
+async function saveImages(items, btn, fallbackName) {
+  const files = items.map(it => new File([it.blob], it.name, { type: 'image/jpeg' }));
+
+  if (canShareFiles(files)) {
+    try {
+      await navigator.share({ files });
+      pendingShare = null;
+      if (btn) btn.textContent = btn.dataset.label || btn.textContent;
+      return 'partage';
+    } catch (err) {
+      if (err && err.name === 'AbortError') { pendingShare = null; return 'annulé'; }
+      // Geste expiré : on propose un second appui, immédiat celui-là.
+      pendingShare = files;
+      if (btn) { btn.dataset.label = btn.dataset.label || btn.textContent; btn.textContent = 'Enregistrer dans Photos'; }
+      toast('Touchez à nouveau pour enregistrer dans Photos.');
+      return 'en attente';
+    }
+  }
+
+  if (items.length === 1) { download(items[0].blob, items[0].name); return 'fichier'; }
+  const zip = makeZip(await Promise.all(items.map(async (it, i) => ({
+    name: `${String(i + 1).padStart(2, '0')}-${it.name}`,
+    data: new Uint8Array(await it.blob.arrayBuffer())
+  }))));
+  download(zip, fallbackName);
+  return 'archive';
+}
+
+/** Deuxième appui : le partage part sans travail préalable, le geste est frais. */
+async function flushPendingShare(btn) {
+  if (!pendingShare) return false;
+  const files = pendingShare;
+  try { await navigator.share({ files }); } catch (e) { /* annulé */ }
+  pendingShare = null;
+  if (btn && btn.dataset.label) btn.textContent = btn.dataset.label;
+  return true;
+}
+
 function download(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1729,14 +1782,16 @@ function download(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
-$('#btnSaveOne').onclick = async () => {
+$('#btnSaveOne').onclick = async (e) => {
+  if (await flushPendingShare(e.currentTarget)) return;
   const a = current(); if (!a || !a.alpha) return;
   const blob = await canvasToBlob(renderFinal(a));
-  download(blob, `${slug(a.name)}-propho.jpg`);
-  toast('JPEG enregistré');
+  const how = await saveImages([{ blob, name: `${slug(a.name)}-propho.jpg` }], e.currentTarget);
+  if (how === 'fichier') toast('JPEG téléchargé');
 };
 
-$('#btnExport').onclick = async () => {
+$('#btnExport').onclick = async (e) => {
+  if (await flushPendingShare(e.currentTarget)) return;
   const list = state.assets.filter(a => a.alpha);
   if (!list.length) return;
   const btn = $('#btnExport');
@@ -1744,22 +1799,17 @@ $('#btnExport').onclick = async () => {
   const label = btn.textContent;
 
   try {
-    if (list.length === 1) {
-      const blob = await canvasToBlob(renderFinal(list[0]));
-      download(blob, `${slug(list[0].name)}-propho.jpg`);
-    } else {
-      const files = [];
-      for (let i = 0; i < list.length; i++) {
-        btn.textContent = `Rendu ${i + 1}/${list.length}…`;
-        await nextFrame();
-        const blob = await canvasToBlob(renderFinal(list[i]));
-        files.push({ name: `${String(i + 1).padStart(2, '0')}-${slug(list[i].name)}.jpg`, data: new Uint8Array(await blob.arrayBuffer()) });
-      }
-      btn.textContent = 'Assemblage…';
-      await nextFrame();
-      download(makeZip(files), `propho-${new Date().toISOString().slice(0, 10)}.zip`);
+    const items = [];
+    for (let i = 0; i < list.length; i++) {
+      if (list.length > 1) { btn.textContent = `Rendu ${i + 1}/${list.length}…`; await nextFrame(); }
+      const blob = await canvasToBlob(renderFinal(list[i]));
+      items.push({ blob, name: `${String(i + 1).padStart(2, '0')}-${slug(list[i].name)}.jpg` });
     }
-    toast(list.length > 1 ? 'Archive ZIP prête' : 'JPEG enregistré');
+    btn.textContent = 'Enregistrement…';
+    const how = await saveImages(items, btn, `propho-${new Date().toISOString().slice(0, 10)}.zip`);
+    if (how === 'partage') toast(items.length > 1 ? `${items.length} photos envoyées vers Photos` : 'Photo envoyée vers Photos');
+    else if (how === 'archive') toast('Archive ZIP téléchargée');
+    else if (how === 'fichier') toast('JPEG téléchargé');
   } catch (err) {
     console.error(err);
     toast('L’export a échoué. Essayez « Enregistrer le JPEG » vue par vue.');
@@ -2697,12 +2747,12 @@ function initTryon() {
     if (tryon.img) { /* on régénère la mention sans rappeler l'API */ }
   });
   $('#btnTryon').addEventListener('click', generateTryon);
-  $('#tryonSave').addEventListener('click', () => {
+  $('#tryonSave').addEventListener('click', async (e) => {
+    if (await flushPendingShare(e.currentTarget)) return;
     if (!tryon.img) return;
-    fetch(tryon.img).then(r => r.blob()).then(b => {
-      download(b, `${slug(listing.type || 'vetement')}-porte-propho.jpg`);
-      toast('Simulation enregistrée');
-    });
+    const b = await (await fetch(tryon.img)).blob();
+    const how = await saveImages([{ blob: b, name: `${slug(listing.type || 'vetement')}-porte-propho.jpg` }], e.currentTarget);
+    if (how === 'fichier') toast('Simulation téléchargée');
   });
   updateFraming();
 }
