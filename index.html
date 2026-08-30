@@ -277,6 +277,68 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border:1px solid var(
 .verstate.fresh{border-color:transparent;background:none;padding-left:0;padding-right:0;opacity:.55}
 .verstate.avail{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
 
+
+/* ---------------- fiche, prix, annonce ---------------- */
+.gear{margin-left:12px;width:30px;height:30px;display:grid;place-items:center;color:var(--ink-2);flex:none}
+.gear svg{width:17px;height:17px}
+.appbar .lcd{margin-left:auto}
+
+.fld{
+  flex:1;min-width:0;width:100%;
+  font-family:var(--sans);font-size:14px;color:var(--ink);
+  background:#fff;border:1px solid var(--line);border-radius:8px;
+  padding:8px 10px;-webkit-appearance:none;appearance:none;
+}
+.fld::placeholder{color:var(--ink-3)}
+select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 50%),linear-gradient(135deg,var(--ink-2) 50%,transparent 50%);
+  background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:28px}
+.fld.wide{width:100%;margin:6px 0 2px}
+.row .ctl.cols{flex-wrap:wrap;gap:6px}
+.chipcol{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-2);background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px 8px}
+.chipcol i{width:11px;height:11px;border-radius:50%;border:1px solid rgba(0,0,0,.12);display:block}
+
+.airow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.airow .btn{padding:9px 16px;font-size:13px}
+.airow .lcd{flex:1;min-width:160px;text-transform:none;letter-spacing:.02em;font-size:10.5px;line-height:1.5}
+.notice.ok{background:#E4F0E9;color:var(--ok)}
+
+.pricecard{
+  margin-top:14px;padding:20px 18px;border-radius:var(--r-lg);
+  background:var(--ink);color:#fff;box-shadow:var(--shadow);
+}
+.pricecard .lcd{color:rgba(255,255,255,.55)}
+.price{display:flex;align-items:baseline;gap:10px;margin:8px 0 10px;
+  font-size:44px;font-weight:680;letter-spacing:-.04em;line-height:1}
+.price em{font-style:normal;font-size:15px;font-weight:400;color:rgba(255,255,255,.5)}
+.price small{font-size:20px;font-weight:500;color:rgba(255,255,255,.65)}
+.pricecard .calc{color:rgba(255,255,255,.42);line-height:1.7}
+.pricecard .weak{color:#F0B58A;margin-top:8px;text-transform:none;letter-spacing:.02em;font-size:10.5px;line-height:1.5}
+
+.lrow{display:flex;align-items:center;gap:10px;padding:12px 16px 6px}
+.lrow .count{margin-left:auto;color:var(--ink-3)}
+.lrow .mini{margin-left:auto;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  border:1px solid var(--line);border-radius:999px;padding:5px 10px;background:#fff;color:var(--ink-2)}
+.lrow .count + .mini{margin-left:0}
+.out{margin:0;padding:0 16px 14px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word;
+  font-family:var(--sans);border-bottom:1px solid var(--line-2)}
+.panel .out:last-child{border-bottom:0}
+
+/* ---------------- feuille de réglages ---------------- */
+.sheetwrap{position:fixed;inset:0;z-index:80;background:rgba(16,18,21,.42);
+  display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)}
+.sheetbox{width:100%;max-width:560px;background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;
+  padding:18px 18px calc(env(safe-area-inset-bottom) + 18px);max-height:90vh;overflow:auto}
+.sheethead{display:flex;align-items:center;margin-bottom:8px}
+.sheethead h3{margin:0;font-size:16px;font-weight:640;letter-spacing:-.02em}
+.sheethead button{margin-left:auto;font-size:24px;line-height:1;color:var(--ink-2);padding:0 4px}
+.sheettext{font-size:13px;line-height:1.55;color:var(--ink-2);margin:8px 0 14px}
+.sheettext.small{font-size:11.5px;margin:4px 0 14px}
+.sheettext.warn{color:var(--warn);background:var(--warn-soft);padding:10px 12px;border-radius:var(--r-md)}
+.sheettext a{color:var(--accent)}
+.sheetact{display:flex;gap:10px;margin-top:6px}
+.sheetact .btn{flex:1;justify-content:center;padding:11px 14px;font-size:13.5px}
+
 .hint{font-size:12px;color:var(--ink-3);margin:10px 2px 0;line-height:1.5}
 .hint b{color:var(--ink-2);font-weight:560}
 
@@ -300,6 +362,9 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border:1px solid var(
 <header class="appbar">
   <div class="wordmark">Propho<span>.</span></div>
   <div class="lcd" id="statusLine">PRÊT · 0 VUE</div>
+  <button id="btnSettings" class="gear" aria-label="Réglages">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg>
+  </button>
   <div class="prog" id="prog"></div>
 </header>
 
@@ -422,6 +487,46 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border:1px solid var(
       </div>
     </div>
 
+    <div class="sec"><span class="idx">04</span><h2>Fiche et annonce</h2><span class="rule"></span></div>
+
+    <div class="airow">
+      <button class="btn ghost" id="btnAI">Activer l’IA</button>
+      <span class="lcd" id="aiHint"></span>
+    </div>
+    <div class="notice ok" id="aiNote" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m5 12.5 4.2 4.2L19 7"/></svg>
+      <span>Fiche pré-remplie par l’IA. Relisez la marque et la taille avant de publier — elles viennent d’une lecture de photo, pas d’une certitude.</span>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="row"><span class="lcd">Catégorie</span><div class="ctl"><select class="fld" id="fCat"></select></div></div>
+      <div class="row"><span class="lcd">Type</span><div class="ctl"><input class="fld" id="fType" placeholder="Pull col rond"></div></div>
+      <div class="row"><span class="lcd">Marque</span><div class="ctl"><input class="fld" id="fBrand" placeholder="Zara, sans marque…"></div></div>
+      <div class="row"><span class="lcd">Gamme</span><div class="ctl"><select class="fld" id="fTier"></select></div></div>
+      <div class="row"><span class="lcd">Taille</span><div class="ctl"><input class="fld" id="fSize" placeholder="M, 40, 38"></div></div>
+      <div class="row"><span class="lcd">Matière</span><div class="ctl"><input class="fld" id="fMat" placeholder="100 % coton"></div></div>
+      <div class="row"><span class="lcd">État</span><div class="ctl"><select class="fld" id="fCond"></select></div></div>
+      <div class="row"><span class="lcd">Prix neuf</span><div class="ctl"><input class="fld" id="fRetail" type="number" inputmode="decimal" placeholder="€ — si connu"></div></div>
+      <div class="row"><span class="lcd">Mesures</span><div class="ctl"><input class="fld" id="fMeas" placeholder="épaules 42, longueur 64"></div></div>
+      <div class="row"><span class="lcd">Détail</span><div class="ctl"><input class="fld" id="fDetails" placeholder="coupe oversize, jamais porté…"></div></div>
+      <div class="row"><span class="lcd">Couleurs</span><div class="ctl cols" id="fColors"></div></div>
+    </div>
+
+    <div class="pricecard">
+      <span class="lcd">Fourchette de départ</span>
+      <div class="price"><span id="priceLo">–</span><em>à</em><span id="priceHi">–</span><small>€</small></div>
+      <div class="lcd calc" id="priceCalc"></div>
+      <div class="lcd weak" id="priceWeak" hidden>Sans le prix neuf, un barème ne vaut rien sur cette gamme. Renseignez-le.</div>
+    </div>
+    <p class="hint">Vinted n’ouvre pas ses données de vente : ce calcul est un point de départ, pas un prix de marché. Regardez trois annonces comparables avant de publier.</p>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="lrow"><span class="lcd">Titre</span><span class="lcd count" id="outTitleLen"></span><button class="mini" data-copy="outTitle">Copier</button></div>
+      <p class="out" id="outTitle"></p>
+      <div class="lrow"><span class="lcd">Description</span><button class="mini" data-copy="outDesc">Copier</button></div>
+      <pre class="out desc" id="outDesc"></pre>
+    </div>
+
     <p class="hint" id="saveHint">Sur iPhone, si le téléchargement est bloqué&nbsp;: <b>appui long sur l’image retouchée → « Ajouter aux photos »</b>.</p>
   </section>
 
@@ -437,6 +542,24 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border:1px solid var(
     <button class="btn" id="btnExport">Exporter les photos</button>
   </div>
 </footer>
+
+<div class="sheetwrap" id="sheet" hidden>
+  <div class="sheetbox" role="dialog" aria-modal="true" aria-label="Réglages">
+    <div class="sheethead"><h3>Assistant IA</h3><button id="sheetClose" aria-label="Fermer">×</button></div>
+    <p class="sheettext">L’app fonctionne entièrement hors ligne. L’assistant est optionnel : il lit vos photos avec Gemini pour pré-remplir la fiche, notamment l’étiquette de composition.</p>
+    <label class="lcd" for="sheetKey">Clé Gemini</label>
+    <input id="sheetKey" class="fld wide" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
+    <p class="sheettext small">Créez-la gratuitement sur <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Elle est enregistrée sur cet appareil uniquement, jamais envoyée ailleurs qu’à Google.</p>
+    <label class="lcd" for="sheetModel">Modèle</label>
+    <input id="sheetModel" class="fld wide" spellcheck="false" placeholder="gemini-2.5-flash">
+    <p class="sheettext small">Changez-le si Google renomme ses modèles.</p>
+    <p class="sheettext small warn">Sur l’offre gratuite, Google peut utiliser les photos envoyées pour améliorer ses modèles, et des relecteurs humains peuvent les voir. Activer la facturation supprime cette clause.</p>
+    <div class="sheetact">
+      <button class="btn ghost" id="sheetForget">Supprimer la clé</button>
+      <button class="btn" id="sheetSave">Enregistrer</button>
+    </div>
+  </div>
+</div>
 
 <input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
 <input type="file" id="fileLib" accept="image/*" multiple hidden>
@@ -1138,6 +1261,7 @@ async function recompute(asset) {
   asset.thumbUrl = renderPreview(asset, 150).toDataURL('image/jpeg', 0.7);
   renderSheet();
   updateStatus();
+  if (typeof refreshColors === 'function') { refreshColors(); renderListing(); }
 }
 
 /** Rendu aperçu (basse résolution) — utilisé par le comparateur et les vignettes. */
@@ -1202,6 +1326,7 @@ function renderSheet() {
 
 function removeAsset(i) {
   state.assets.splice(i, 1);
+  if (typeof refreshColors === 'function') { refreshColors(); renderListing(); }
   if (state.selected >= state.assets.length) state.selected = state.assets.length - 1;
   renderSheet();
   if (state.assets.length) drawViewer(); else { state.selected = -1; }
@@ -1549,6 +1674,480 @@ function toast(msg) {
 }
 
 /* =============================================================
+   FICHE PRODUIT, PRIX ET ANNONCE
+   Les couleurs sont mesurées sur les pixels du vêtement (le masque
+   du détourage sert de pochoir). Le reste vient du formulaire, ou
+   de l'assistant IA quand une clé est configurée.
+   ============================================================= */
+
+/* ---------- vocabulaire couleur ---------- */
+const PALETTE = [
+  ['Noir', 26, 26, 28], ['Anthracite', 62, 64, 68], ['Gris', 150, 150, 152],
+  ['Gris clair', 205, 205, 205], ['Blanc', 246, 246, 243], ['Crème', 238, 228, 205],
+  ['Beige', 214, 195, 165], ['Camel', 176, 141, 87], ['Marron', 107, 68, 35],
+  ['Chocolat', 74, 48, 28], ['Bordeaux', 109, 34, 51], ['Rouge', 192, 57, 43],
+  ['Corail', 240, 119, 106], ['Rose', 231, 154, 186], ['Rose pâle', 242, 208, 218],
+  ['Fuchsia', 208, 62, 140], ['Orange', 226, 113, 42], ['Moutarde', 211, 166, 37],
+  ['Jaune', 242, 212, 60], ['Vert clair', 143, 196, 107], ['Vert', 46, 125, 79],
+  ['Vert sapin', 28, 78, 56], ['Kaki', 107, 112, 67], ['Vert d\u2019eau', 134, 196, 180],
+  ['Turquoise', 41, 168, 160], ['Bleu ciel', 133, 184, 222], ['Bleu', 43, 94, 168],
+  ['Bleu marine', 30, 42, 74], ['Denim', 78, 108, 148], ['Violet', 122, 75, 181],
+  ['Lilas', 195, 168, 224], ['Doré', 201, 162, 39], ['Argenté', 184, 188, 192]
+];
+
+function srgbToLab(r, g, b) {
+  const f = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const R = f(r), G = f(g), B = f(b);
+  let x = (R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047;
+  let y = (R * 0.2126 + G * 0.7152 + B * 0.0722);
+  let z = (R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883;
+  const k = (v) => v > 0.008856 ? Math.cbrt(v) : (7.787 * v) + 16 / 116;
+  x = k(x); y = k(y); z = k(z);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+
+const PALETTE_LAB = PALETTE.map(p => [p[0], srgbToLab(p[1], p[2], p[3]), p]);
+
+function nameColor(r, g, b) {
+  const lab = srgbToLab(r, g, b);
+  let best = null, bd = Infinity;
+  for (const [name, plab, raw] of PALETTE_LAB) {
+    const d = Math.hypot(lab[0] - plab[0], lab[1] - plab[1], lab[2] - plab[2]);
+    if (d < bd) { bd = d; best = { name, hex: rgbHex(raw[1], raw[2], raw[3]) }; }
+  }
+  return best;
+}
+
+function rgbHex(r, g, b) {
+  return '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Regroupe les pixels du vêtement en quelques teintes dominantes.
+ * k-moyennes sur les pixels dont l'alpha est plein : le fond ne pèse jamais
+ * dans le résultat, c'est tout l'intérêt d'avoir déjà le masque.
+ */
+function measureColors(asset) {
+  const { w, h, data } = asset.prev;
+  const alpha = asset.alphaPrev;
+  const pts = [];
+  const stride = Math.max(1, Math.round(Math.sqrt(w * h / 9000)));
+  for (let y = 0; y < h; y += stride) for (let x = 0; x < w; x += stride) {
+    const i = y * w + x;
+    if (alpha && asset.confident && alpha[i] < 230) continue;
+    if (!asset.confident) {
+      // Détourage incertain : on se rabat sur le centre du cadre.
+      if (x < w * 0.3 || x > w * 0.7 || y < h * 0.28 || y > h * 0.72) continue;
+    }
+    const p = i << 2;
+    pts.push([data[p], data[p + 1], data[p + 2]]);
+  }
+  if (pts.length < 24) return [];
+
+  const K = 4;
+  let cent = [];
+  for (let i = 0; i < K; i++) cent.push(pts[Math.floor(pts.length * (i + 0.5) / K)].slice());
+  const owner = new Int32Array(pts.length);
+
+  for (let it = 0; it < 10; it++) {
+    for (let i = 0; i < pts.length; i++) {
+      let bd = Infinity, bi = 0;
+      for (let c = 0; c < K; c++) {
+        const d = (pts[i][0] - cent[c][0]) ** 2 + (pts[i][1] - cent[c][1]) ** 2 + (pts[i][2] - cent[c][2]) ** 2;
+        if (d < bd) { bd = d; bi = c; }
+      }
+      owner[i] = bi;
+    }
+    const sums = Array.from({ length: K }, () => [0, 0, 0, 0]);
+    for (let i = 0; i < pts.length; i++) {
+      const s = sums[owner[i]];
+      s[0] += pts[i][0]; s[1] += pts[i][1]; s[2] += pts[i][2]; s[3]++;
+    }
+    for (let c = 0; c < K; c++) if (sums[c][3]) cent[c] = [sums[c][0] / sums[c][3], sums[c][1] / sums[c][3], sums[c][2] / sums[c][3]];
+  }
+
+  const counts = new Array(K).fill(0);
+  for (let i = 0; i < pts.length; i++) counts[owner[i]]++;
+
+  // Fusion des amas qui portent le même nom de couleur
+  const byName = new Map();
+  for (let c = 0; c < K; c++) {
+    if (!counts[c]) continue;
+    const nm = nameColor(cent[c][0], cent[c][1], cent[c][2]);
+    const prev = byName.get(nm.name);
+    if (prev) { prev.share += counts[c] / pts.length; }
+    else byName.set(nm.name, { name: nm.name, hex: rgbHex(cent[c][0], cent[c][1], cent[c][2]), share: counts[c] / pts.length });
+  }
+  return Array.from(byName.values()).sort((a, b) => b.share - a.share).filter(c => c.share >= 0.10).slice(0, 3);
+}
+
+/* ---------- barème de prix ---------- */
+const CATS = {
+  tshirt:     { label: 'T-shirt / Top',      base: 8,  liq: 0.95 },
+  chemise:    { label: 'Chemise / Blouse',   base: 11, liq: 0.95 },
+  pull:       { label: 'Pull / Sweat',       base: 13, liq: 1.05 },
+  robe:       { label: 'Robe',               base: 16, liq: 1.00 },
+  jupe:       { label: 'Jupe',               base: 11, liq: 0.95 },
+  pantalon:   { label: 'Pantalon / Jean',    base: 15, liq: 1.00 },
+  veste:      { label: 'Veste / Blazer',     base: 21, liq: 1.05 },
+  manteau:    { label: 'Manteau',            base: 30, liq: 1.10 },
+  chaussures: { label: 'Chaussures',         base: 22, liq: 1.05 },
+  sac:        { label: 'Sac',                base: 20, liq: 1.10 },
+  accessoire: { label: 'Accessoire',         base: 8,  liq: 0.90 }
+};
+
+const TIERS = {
+  inconnu:  { label: 'Sans marque',          k: 0.75 },
+  eco:      { label: 'Grande distribution',  k: 0.70 },
+  milieu:   { label: 'Milieu de gamme',      k: 1.00 },
+  premium:  { label: 'Premium',              k: 1.90 },
+  createur: { label: 'Créateur / Luxe',      k: 4.20 }
+};
+
+const CONDS = {
+  neuf_etiq: { label: 'Neuf avec étiquette', k: 0.50, court: 'Neuf avec étiquette' },
+  neuf:      { label: 'Neuf sans étiquette', k: 0.42, court: 'Neuf sans étiquette' },
+  tres_bon:  { label: 'Très bon état',       k: 0.32, court: 'Très bon état' },
+  bon:       { label: 'Bon état',            k: 0.22, court: 'Bon état' },
+  correct:   { label: 'Satisfaisant',        k: 0.13, court: 'Satisfaisant' }
+};
+
+const BRAND_TIER = {
+  primark: 'eco', kiabi: 'eco', shein: 'eco', gemo: 'eco', 'c&a': 'eco', boohoo: 'eco',
+  zara: 'milieu', 'h&m': 'milieu', hm: 'milieu', mango: 'milieu', bershka: 'milieu',
+  pull_bear: 'milieu', stradivarius: 'milieu', asos: 'milieu', uniqlo: 'milieu',
+  promod: 'milieu', camaieu: 'milieu', jennyfer: 'milieu', celio: 'milieu', jules: 'milieu',
+  monoprix: 'milieu', decathlon: 'milieu', nike: 'milieu', adidas: 'milieu',
+  levis: 'premium', "levi's": 'premium', cos: 'premium', sandro: 'premium', maje: 'premium',
+  ba_sh: 'premium', claudie_pierlot: 'premium', sezane: 'premium', 'sézane': 'premium',
+  'the kooples': 'premium', comptoir: 'premium', arket: 'premium', 'a.p.c.': 'premium',
+  'dr martens': 'premium', 'new balance': 'premium', patagonia: 'premium', 'the north face': 'premium',
+  gucci: 'createur', prada: 'createur', chanel: 'createur', dior: 'createur',
+  'saint laurent': 'createur', 'isabel marant': 'createur', 'acne studios': 'createur',
+  balenciaga: 'createur', hermes: 'createur', 'hermès': 'createur', burberry: 'createur',
+  'stone island': 'createur', 'maison margiela': 'createur'
+};
+
+function guessTier(brand) {
+  if (!brand) return null;
+  const b = brand.trim().toLowerCase();
+  if (!b || b === 'sans marque' || b === 'inconnue') return 'inconnu';
+  if (BRAND_TIER[b]) return BRAND_TIER[b];
+  for (const key in BRAND_TIER) if (b.includes(key) || key.includes(b)) return BRAND_TIER[key];
+  return null;
+}
+
+/** Fourchette de prix, avec le détail du calcul pour qu'il soit vérifiable. */
+function priceRange(f) {
+  const cat = CATS[f.cat] || CATS.tshirt;
+  const cond = CONDS[f.cond] || CONDS.tres_bon;
+  const tier = TIERS[f.tier] || TIERS.milieu;
+  const retail = parseFloat(f.retail);
+  let base, steps;
+
+  if (retail > 0) {
+    base = retail * cond.k * cat.liq;
+    steps = [
+      `${retail.toFixed(0)} € neuf`,
+      `× ${cond.k.toFixed(2)} ${cond.court.toLowerCase()}`,
+      `× ${cat.liq.toFixed(2)} ${cat.label.toLowerCase()}`
+    ];
+  } else {
+    base = cat.base * tier.k * (cond.k / CONDS.tres_bon.k);
+    steps = [
+      `${cat.base} € base ${cat.label.toLowerCase()}`,
+      `× ${tier.k.toFixed(2)} ${tier.label.toLowerCase()}`,
+      `× ${(cond.k / CONDS.tres_bon.k).toFixed(2)} ${cond.court.toLowerCase()}`
+    ];
+  }
+
+  const round = (v) => v >= 40 ? Math.round(v) : Math.round(v * 2) / 2;
+  const lo = Math.max(3, round(base * 0.85));
+  const hi = Math.max(lo + 1, round(base * 1.18));
+  // Sans prix neuf, une pièce de créateur n'est pas estimable par un barème :
+  // l'écart entre un t-shirt et un sac de la même maison est trop grand.
+  const weak = !(retail > 0) && (f.tier === 'createur' || f.tier === 'premium');
+  return { lo, hi, steps, base, weak };
+}
+
+/* ---------- texte de l'annonce ---------- */
+function fmt(n) { return Number.isInteger(n) ? String(n) : n.toFixed(2).replace('.', ',').replace(/,00$/, ''); }
+
+function buildListing(f, colors) {
+  const cat = CATS[f.cat] || CATS.tshirt;
+  const cond = CONDS[f.cond] || CONDS.tres_bon;
+  const type = (f.type || cat.label.split(' / ')[0]).trim();
+  const brand = (f.brand || '').trim();
+  const mat = (f.mat || '').trim();
+  const size = (f.size || '').trim();
+  const c1 = colors[0] ? colors[0].name.toLowerCase() : '';
+  const c2 = colors[1] && colors[1].share > 0.22 ? colors[1].name.toLowerCase() : '';
+
+  let title = type;
+  if (brand && brand.toLowerCase() !== 'sans marque') title += ' ' + brand;
+  if (c1) title += ' ' + c1;
+  if (size) title += ' – T. ' + size;
+  if (title.length > 60) title = title.slice(0, 59).trim() + '…';
+
+  const L = [];
+  let l1 = type;
+  if (brand && brand.toLowerCase() !== 'sans marque') l1 += ' ' + brand;
+  if (c1) l1 += ', coloris ' + c1 + (c2 ? ' et ' + c2 : '');
+  L.push(l1 + '.');
+
+  const l2 = [];
+  if (size) l2.push('Taille ' + size);
+  l2.push(cond.court);
+  L.push(l2.join(' · ') + '.');
+
+  if (mat) L.push('Composition : ' + mat.replace(/\.$/, '') + '.');
+  if (f.meas) L.push('Mesures à plat : ' + f.meas.trim() + '.');
+  if (f.details) L.push(f.details.trim().replace(/\.?$/, '.'));
+  if (parseFloat(f.retail) > 0) L.push('Prix boutique à l’époque : environ ' + fmt(parseFloat(f.retail)) + ' €.');
+
+  L.push('Photos prises par mes soins, aucun filtre. Envoi rapide et soigné, sous 24 h.');
+  L.push('N’hésitez pas si vous voulez une mesure précise ou une photo supplémentaire.');
+
+  return { title, desc: L.join('\n\n') };
+}
+
+
+/* =============================================================
+   INTERFACE — FICHE, PRIX, ANNONCE, ASSISTANT IA
+   ============================================================= */
+const LS_KEY = 'propho.gemini.key';
+const LS_MODEL = 'propho.gemini.model';
+const DEFAULT_MODEL = 'gemini-2.5-flash';
+
+const listing = {
+  cat: 'pull', type: '', brand: '', tier: 'milieu', size: '', mat: '',
+  cond: 'tres_bon', retail: '', meas: '', details: '', colors: []
+};
+
+function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+function lsSet(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} }
+
+/* ---------- remplissage des listes ---------- */
+function fillSelects() {
+  const cat = $('#fCat'), cond = $('#fCond'), tier = $('#fTier');
+  cat.innerHTML = Object.entries(CATS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+  cond.innerHTML = Object.entries(CONDS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+  tier.innerHTML = Object.entries(TIERS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+  cat.value = listing.cat; cond.value = listing.cond; tier.value = listing.tier;
+}
+
+const FIELD_MAP = [
+  ['fCat', 'cat'], ['fType', 'type'], ['fBrand', 'brand'], ['fTier', 'tier'],
+  ['fSize', 'size'], ['fMat', 'mat'], ['fCond', 'cond'], ['fRetail', 'retail'],
+  ['fMeas', 'meas'], ['fDetails', 'details']
+];
+
+function readFields() {
+  for (const [id, key] of FIELD_MAP) { const el = $('#' + id); if (el) listing[key] = el.value; }
+}
+
+function writeFields() {
+  for (const [id, key] of FIELD_MAP) { const el = $('#' + id); if (el) el.value = listing[key] ?? ''; }
+}
+
+/* ---------- mesure des couleurs sur la vue de couverture ---------- */
+function refreshColors() {
+  const cover = state.assets.find(a => a.alphaPrev);
+  const box = $('#fColors');
+  if (!cover) { listing.colors = []; box.textContent = 'en attente d’une photo'; return; }
+  listing.colors = measureColors(cover);
+  if (!listing.colors.length) { box.textContent = 'non mesurable'; return; }
+  box.innerHTML = listing.colors.map(c =>
+    `<span class="chipcol"><i style="background:${c.hex}"></i>${c.name} ${Math.round(c.share * 100)}%</span>`
+  ).join('');
+}
+
+/* ---------- rendu du prix et du texte ---------- */
+function renderListing() {
+  readFields();
+  const p = priceRange(listing);
+  $('#priceLo').textContent = fmt(p.lo);
+  $('#priceHi').textContent = fmt(p.hi);
+  $('#priceCalc').textContent = p.steps.join('  ');
+  $('#priceWeak').hidden = !p.weak;
+
+  const out = buildListing(listing, listing.colors);
+  $('#outTitle').textContent = out.title;
+  $('#outTitleLen').textContent = out.title.length + '/60';
+  $('#outDesc').textContent = out.desc;
+}
+
+/* ---------- assistant IA ---------- */
+function jpegFromBuffer(buf, max, q) {
+  const k = Math.min(1, max / Math.max(buf.w, buf.h));
+  const c = document.createElement('canvas');
+  c.width = Math.round(buf.w * k); c.height = Math.round(buf.h * k);
+  const x = c.getContext('2d');
+  const tmp = document.createElement('canvas');
+  tmp.width = buf.w; tmp.height = buf.h;
+  tmp.getContext('2d').putImageData(new ImageData(buf.data.slice(0), buf.w, buf.h), 0, 0);
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(tmp, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', q).split(',')[1];
+}
+
+const AI_PROMPT = `Tu analyses les photos d'un vêtement d'occasion mis en vente sur Vinted.
+Certaines photos peuvent montrer l'étiquette de composition ou de marque : lis-la attentivement, c'est la source la plus fiable.
+
+Réponds uniquement par un objet JSON, sans texte autour, avec exactement ces clés :
+{
+  "categorie": une valeur parmi ["tshirt","chemise","pull","robe","jupe","pantalon","veste","manteau","chaussures","sac","accessoire"],
+  "type": nom précis en français, 2 à 4 mots, ex "Pull col roulé" ou "Jean mom taille haute",
+  "marque": la marque si elle est lisible sur une étiquette ou un logo, sinon null,
+  "matiere": la composition si elle est lisible sur l'étiquette, sinon la matière apparente, ex "100 % coton", "laine mélangée",
+  "taille": la taille si elle est lisible sur l'étiquette, sinon null,
+  "etat": une valeur parmi ["neuf_etiq","neuf","tres_bon","bon","correct"] d'après l'usure visible,
+  "details": une phrase courte sur une particularité utile à l'acheteur (coupe, détail, défaut visible), sinon null,
+  "prix_neuf_estime": prix boutique d'origine estimé en euros, nombre entier, ou null si tu ne peux pas
+}
+
+Règle absolue : mets null plutôt que de deviner. N'invente jamais une marque, une taille ou une composition qui ne sont pas lisibles sur les photos.`;
+
+async function askGemini() {
+  const key = lsGet(LS_KEY);
+  if (!key) { openSettings(); toast('Ajoutez d’abord votre clé Gemini.'); return; }
+  const shots = state.assets.filter(a => a.prev).slice(0, 3);
+  if (!shots.length) { toast('Chargez au moins une photo.'); return; }
+
+  const btn = $('#btnAI');
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Analyse…';
+
+  try {
+    const parts = shots.map(a => ({ inline_data: { mime_type: 'image/jpeg', data: jpegFromBuffer(a.prev, 700, 0.72) } }));
+    parts.push({ text: AI_PROMPT });
+
+    const model = lsGet(LS_MODEL) || DEFAULT_MODEL;
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: { temperature: 0.2, responseMimeType: 'application/json' }
+        })
+      }
+    );
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      if (res.status === 400 && /API key/i.test(body)) throw new Error('Clé refusée. Vérifiez-la dans les réglages.');
+      if (res.status === 429) throw new Error('Quota Gemini atteint. Réessayez dans quelques minutes.');
+      if (res.status === 403) throw new Error('Accès refusé. La clé n’a peut-être pas l’API Gemini activée.');
+      throw new Error(`Gemini a répondu ${res.status}.`);
+    }
+
+    const data = await res.json();
+    const txt = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+    if (!txt) throw new Error('Réponse vide. Réessayez avec des photos plus nettes.');
+
+    const info = JSON.parse(txt.replace(/```json|```/g, '').trim());
+    applyAI(info);
+    renderListing();
+    toast('Fiche remplie. Vérifiez avant de publier.');
+  } catch (err) {
+    console.error(err);
+    toast(err.message || 'L’analyse a échoué.');
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+
+function applyAI(info) {
+  const set = (key, val) => { if (val !== null && val !== undefined && String(val).trim() !== '') listing[key] = String(val).trim(); };
+  if (info.categorie && CATS[info.categorie]) listing.cat = info.categorie;
+  if (info.etat && CONDS[info.etat]) listing.cond = info.etat;
+  set('type', info.type);
+  set('brand', info.marque);
+  set('mat', info.matiere);
+  set('size', info.taille);
+  set('details', info.details);
+  if (typeof info.prix_neuf_estime === 'number' && info.prix_neuf_estime > 0) listing.retail = String(info.prix_neuf_estime);
+  const t = guessTier(listing.brand);
+  if (t) listing.tier = t;
+  writeFields();
+  $('#aiNote').hidden = false;
+}
+
+/* ---------- réglages ---------- */
+function openSettings() {
+  $('#sheetKey').value = lsGet(LS_KEY);
+  $('#sheetModel').value = lsGet(LS_MODEL) || DEFAULT_MODEL;
+  $('#sheet').hidden = false;
+}
+function closeSettings() { $('#sheet').hidden = true; }
+
+/* ---------- copie ---------- */
+async function copyText(el, btn) {
+  const txt = el.textContent;
+  try {
+    await navigator.clipboard.writeText(txt);
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e2) {}
+    ta.remove();
+  }
+  const old = btn.textContent;
+  btn.textContent = 'Copié';
+  setTimeout(() => { btn.textContent = old; }, 1400);
+}
+
+/* ---------- branchements ---------- */
+function initListing() {
+  fillSelects();
+  writeFields();
+
+  for (const [id] of FIELD_MAP) {
+    const el = $('#' + id);
+    if (!el) continue;
+    el.addEventListener('input', () => {
+      if (id === 'fBrand') {
+        const t = guessTier(el.value);
+        if (t) { listing.tier = t; $('#fTier').value = t; }
+      }
+      renderListing();
+    });
+    el.addEventListener('change', renderListing);
+  }
+
+  $$('[data-copy]').forEach(b => b.addEventListener('click', () => copyText($('#' + b.dataset.copy), b)));
+  $('#btnAI').addEventListener('click', askGemini);
+  $('#btnSettings').addEventListener('click', openSettings);
+  $('#sheetClose').addEventListener('click', closeSettings);
+  $('#sheet').addEventListener('click', (e) => { if (e.target.id === 'sheet') closeSettings(); });
+  $('#sheetSave').addEventListener('click', () => {
+    lsSet(LS_KEY, $('#sheetKey').value.trim());
+    lsSet(LS_MODEL, $('#sheetModel').value.trim());
+    closeSettings();
+    toast($('#sheetKey').value.trim() ? 'Clé enregistrée sur cet appareil.' : 'Clé supprimée.');
+    updateAIButton();
+  });
+  $('#sheetForget').addEventListener('click', () => {
+    $('#sheetKey').value = '';
+    lsSet(LS_KEY, ''); closeSettings(); toast('Clé supprimée de cet appareil.'); updateAIButton();
+  });
+
+  updateAIButton();
+  renderListing();
+}
+
+function updateAIButton() {
+  const has = !!lsGet(LS_KEY);
+  $('#btnAI').textContent = has ? 'Remplir avec l’IA' : 'Activer l’IA';
+  $('#aiHint').textContent = has
+    ? 'Les photos partent chez Google au moment de l’analyse. Le reste de l’app fonctionne hors ligne.'
+    : 'Sans clé, remplissez la fiche à la main. L’app reste 100 % locale.';
+}
+
+/* =============================================================
    VERSIONS ET MISES À JOUR
    La page est servie en statique : chaque rechargement livre déjà la
    dernière version. Le seul vrai problème est le cache du navigateur —
@@ -1631,6 +2230,7 @@ PRESETS.catalogue._preset = 'catalogue';
 PRESETS.doux._preset = 'doux';
 PRESETS.naturel._preset = 'naturel';
 updateStatus();
+initListing();
 $('#verNum').textContent = IS_DEV ? 'dev' : APP_VERSION;
 checkUpdate(true);
 
