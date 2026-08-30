@@ -1,0 +1,62 @@
+# Publie Propho sur GitHub Pages et régénère version.json à partir de
+# la constante APP_VERSION d'index.html. Une seule valeur à changer
+# pour publier une mise à jour.
+#
+# À faire une fois : Settings → Pages → Source = "GitHub Actions".
+
+name: Déployer Propho
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lire la version dans index.html
+        id: ver
+        run: |
+          VERSION=$(grep -oP "APP_VERSION\s*=\s*'\K[0-9]+\.[0-9]+\.[0-9]+" index.html | head -1)
+          if [ -z "$VERSION" ]; then
+            echo "::error::APP_VERSION introuvable dans index.html"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version détectée : $VERSION"
+
+      - name: Assembler le site
+        run: |
+          mkdir -p _site
+          rsync -a --exclude '.git' --exclude '.github' --exclude '_site' ./ _site/
+          printf '{"version":"%s","date":"%s","commit":"%s"}\n' \
+            "${{ steps.ver.outputs.version }}" \
+            "$(date -u +%Y-%m-%d)" \
+            "${GITHUB_SHA::7}" > _site/version.json
+          cat _site/version.json
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
