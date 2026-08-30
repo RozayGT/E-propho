@@ -345,6 +345,32 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
 .sheetact{display:flex;gap:10px;margin-top:6px}
 .sheetact .btn{flex:1;justify-content:center;padding:11px 14px;font-size:13.5px}
 
+
+/* ---------------- réglages fins repliés ---------------- */
+.adv{margin-top:12px}
+.adv > summary{
+  list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+  padding:13px 16px;background:var(--card);border:1px solid var(--line-2);border-radius:var(--r-lg);
+}
+.adv > summary::-webkit-details-marker{display:none}
+.adv > summary .chev{margin-left:auto;font-size:17px;color:var(--ink-3);transition:transform .18s ease;line-height:1}
+.adv[open] > summary{border-radius:var(--r-lg) var(--r-lg) 0 0;border-bottom:0}
+.adv[open] > summary .chev{transform:rotate(90deg)}
+.adv[open] .panel{border-radius:0 0 var(--r-lg) var(--r-lg);border-top:0}
+
+/* ---------------- tutoriel ---------------- */
+.steps{list-style:none;counter-reset:s;margin:6px 0 16px;padding:0}
+.steps li{counter-increment:s;position:relative;padding:0 0 16px 38px}
+.steps li::before{
+  content:counter(s,decimal-leading-zero);position:absolute;left:0;top:1px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--accent);
+}
+.steps li::after{content:"";position:absolute;left:9px;top:19px;bottom:4px;width:1px;background:var(--line)}
+.steps li:last-child::after{display:none}
+.steps b{display:block;font-size:14.5px;font-weight:600;letter-spacing:-.01em;margin-bottom:3px}
+.steps span{display:block;font-size:13px;line-height:1.55;color:var(--ink-2)}
+.steps em{font-style:normal;color:var(--ink);font-weight:560}
+
 .hint{font-size:12px;color:var(--ink-3);margin:14px 2px 0;line-height:1.6}
 .hint b{color:var(--ink-2);font-weight:560}
 
@@ -369,6 +395,9 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
 <header class="appbar">
   <div class="wordmark">Propho<span>.</span></div>
   <div class="lcd" id="statusLine">PRÊT · 0 VUE</div>
+  <button id="btnHelp" class="gear" aria-label="Comment ça marche">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9.4 9.3a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.3-2.6 3.9"/><path d="M12 17.2v.1"/></svg>
+  </button>
   <button id="btnSettings" class="gear" aria-label="Réglages">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg>
   </button>
@@ -401,9 +430,9 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
   <!-- ÉTAPE 2 — planche + éditeur ------------------------------------->
   <section id="stageWork" hidden>
 
-    <div class="sec"><span class="idx">01</span><h2>Planche contact</h2><span class="rule"></span><span class="lcd" id="sheetCount"></span></div>
+    <div class="sec"><span class="idx">01</span><h2>Vos photos</h2><span class="rule"></span><span class="lcd" id="sheetCount"></span></div>
     <div class="sheet" id="sheet"></div>
-    <p class="hint">La vue <b>01</b> sert de photo de couverture à l’annonce. Pour changer l’ordre, supprimez une vue et réimportez-la.</p>
+    <p class="hint">La photo <b>01</b> est celle qui s’affiche en premier sur Vinted. Pour changer l’ordre, supprimez-en une et réimportez-la.</p>
 
     <div class="sec"><span class="idx">02</span><h2>Avant / après</h2><span class="rule"></span></div>
     <div class="viewer" id="viewer">
@@ -422,20 +451,21 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
     <div class="sec"><span class="idx">03</span><h2>Rendu</h2><span class="rule"></span></div>
     <div class="presets" id="presets">
       <button class="chip" data-preset="fidele" aria-pressed="true">Couleurs fidèles</button>
-      <button class="chip" data-preset="catalogue" aria-pressed="false">Catalogue</button>
+      <button class="chip" data-preset="catalogue" aria-pressed="false">Éclatant</button>
       <button class="chip" data-preset="doux" aria-pressed="false">Studio doux</button>
-      <button class="chip" data-preset="naturel" aria-pressed="false">Naturel</button>
+      <button class="chip" data-preset="naturel" aria-pressed="false">Sans retouche</button>
     </div>
+    <p class="hint" id="presetHint"></p>
 
     <div class="panel" style="margin-top:12px">
       <div class="row">
         <span class="lcd">Fond</span>
         <div class="ctl swatches" id="swatches">
-          <button class="sw" data-bg="white"    style="background:#fff"                                                   aria-pressed="true"  aria-label="Blanc pur"></button>
-          <button class="sw" data-bg="sweep"    style="background:linear-gradient(180deg,#fff,#E6E4DF)"                   aria-pressed="false" aria-label="Cyclo dégradé"></button>
-          <button class="sw" data-bg="offwhite" style="background:#F5F3EF"                                                aria-pressed="false" aria-label="Blanc cassé"></button>
-          <button class="sw" data-bg="grey"     style="background:#E9E9E7"                                                aria-pressed="false" aria-label="Gris doux"></button>
-          <button class="sw none" data-bg="none"                                                                          aria-pressed="false" aria-label="Garder le fond d’origine"></button>
+          <button class="sw" data-bg="white"    style="background:#fff"                                 aria-pressed="true"  aria-label="Blanc"></button>
+          <button class="sw" data-bg="sweep"    style="background:linear-gradient(180deg,#fff,#E6E4DF)" aria-pressed="false" aria-label="Dégradé studio"></button>
+          <button class="sw" data-bg="offwhite" style="background:#F5F3EF"                              aria-pressed="false" aria-label="Blanc cassé"></button>
+          <button class="sw" data-bg="grey"     style="background:#E9E9E7"                              aria-pressed="false" aria-label="Gris"></button>
+          <button class="sw none" data-bg="none"                                                        aria-pressed="false" aria-label="Garder le fond d’origine"></button>
         </div>
       </div>
       <div class="row">
@@ -447,48 +477,55 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
         </div></div>
       </div>
       <div class="row">
-        <span class="lcd">Ombre portée</span>
+        <span class="lcd">Ombre</span>
         <div class="ctl"><button class="sw-toggle" id="tgShadow" aria-pressed="true" aria-label="Ombre portée"></button></div>
-      </div>
-      <div class="row">
-        <span class="lcd">Marge</span>
-        <div class="ctl"><input type="range" id="rgMargin" min="2" max="22" value="9"><span class="val" id="vMargin">9%</span></div>
-      </div>
-      <div class="row">
-        <span class="lcd">Détourage</span>
-        <div class="ctl"><input type="range" id="rgTol" min="-85" max="90" value="0"><span class="val" id="vTol">0</span></div>
       </div>
       <div class="row">
         <span class="lcd">Luminosité</span>
         <div class="ctl"><input type="range" id="rgLevels" min="0" max="140" value="45"><span class="val" id="vLevels">45</span></div>
       </div>
-      <div class="row">
-        <span class="lcd">Blancs</span>
-        <div class="ctl"><input type="range" id="rgWb" min="0" max="120" value="0"><span class="val" id="vWb">0</span></div>
-      </div>
-      <div class="row">
-        <span class="lcd">Contraste</span>
-        <div class="ctl"><input type="range" id="rgContrast" min="0" max="100" value="6"><span class="val" id="vContrast">6</span></div>
-      </div>
-      <div class="row">
-        <span class="lcd">Couleurs</span>
-        <div class="ctl"><input type="range" id="rgVibrance" min="0" max="100" value="0"><span class="val" id="vVibrance">0</span></div>
-      </div>
-      <div class="row">
-        <span class="lcd">Netteté</span>
-        <div class="ctl"><input type="range" id="rgSharpen" min="0" max="100" value="34"><span class="val" id="vSharpen">34</span></div>
-      </div>
     </div>
+
+    <details class="adv">
+      <summary><span class="lcd">Réglages fins</span><span class="chev" aria-hidden="true">›</span></summary>
+      <div class="panel">
+        <div class="row">
+          <span class="lcd">Marge</span>
+          <div class="ctl"><input type="range" id="rgMargin" min="2" max="22" value="9"><span class="val" id="vMargin">9%</span></div>
+        </div>
+        <div class="row">
+          <span class="lcd">Détourage</span>
+          <div class="ctl"><input type="range" id="rgTol" min="-85" max="90" value="0"><span class="val" id="vTol">0</span></div>
+        </div>
+        <div class="row">
+          <span class="lcd">Blancs</span>
+          <div class="ctl"><input type="range" id="rgWb" min="0" max="120" value="0"><span class="val" id="vWb">0</span></div>
+        </div>
+        <div class="row">
+          <span class="lcd">Contraste</span>
+          <div class="ctl"><input type="range" id="rgContrast" min="0" max="100" value="6"><span class="val" id="vContrast">6</span></div>
+        </div>
+        <div class="row">
+          <span class="lcd">Saturation</span>
+          <div class="ctl"><input type="range" id="rgVibrance" min="0" max="100" value="0"><span class="val" id="vVibrance">0</span></div>
+        </div>
+        <div class="row">
+          <span class="lcd">Netteté</span>
+          <div class="ctl"><input type="range" id="rgSharpen" min="0" max="100" value="34"><span class="val" id="vSharpen">34</span></div>
+        </div>
+      </div>
+      <p class="hint">Le curseur <b>Détourage</b> est le seul à connaître : poussez-le vers la gauche si l’app mange le vêtement, vers la droite s’il reste du fond.</p>
+    </details>
 
     <div class="panel" style="margin-top:12px">
       <div class="row">
-        <span class="lcd">Appliquer</span>
+        <span class="lcd">Réglages</span>
         <div class="ctl">
-          <button class="btn ghost" id="btnApplyAll" style="padding:9px 14px;font-size:13px">Ces réglages à toutes les vues</button>
+          <button class="btn ghost" id="btnApplyAll" style="padding:9px 14px;font-size:13px">Appliquer à toutes les photos</button>
         </div>
       </div>
       <div class="row">
-        <span class="lcd">Cette vue</span>
+        <span class="lcd">Cette photo</span>
         <div class="ctl">
           <button class="btn ghost" id="btnSaveOne" style="padding:9px 14px;font-size:13px">Enregistrer le JPEG</button>
         </div>
@@ -550,6 +587,42 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
     <button class="btn" id="btnExport">Exporter les photos</button>
   </div>
 </footer>
+
+<div class="sheetwrap" id="helpSheet" hidden>
+  <div class="sheetbox" role="dialog" aria-modal="true" aria-label="Comment ça marche">
+    <div class="sheethead"><h3>Comment ça marche</h3><button id="helpClose" aria-label="Fermer">×</button></div>
+
+    <ol class="steps">
+      <li>
+        <b>Posez le vêtement bien à plat</b>
+        <span>Sur un drap uni, de préférence clair. Lissez les plis à la main. Plus le fond est uni, plus le détourage est propre.</span>
+      </li>
+      <li>
+        <b>Mettez-vous près d’une fenêtre</b>
+        <span>Lumière du jour, sans soleil direct. Ne vous placez pas entre la fenêtre et le vêtement : votre ombre se verrait.</span>
+      </li>
+      <li>
+        <b>Photographiez à la verticale, au-dessus</b>
+        <span>Téléphone parallèle au sol, le vêtement entier dans le cadre avec un peu d’air autour.</span>
+      </li>
+      <li>
+        <b>Ajoutez une photo de l’étiquette</b>
+        <span>En gros plan et bien nette. C’est elle qui permet à l’IA de lire la marque, la taille et la composition.</span>
+      </li>
+      <li>
+        <b>Choisissez un rendu</b>
+        <span><em>Couleurs fidèles</em> ne touche pas aux teintes, c’est le plus sûr pour vendre. <em>Éclatant</em> réveille une photo terne. <em>Sans retouche</em> garde votre fond d’origine.</span>
+      </li>
+      <li>
+        <b>Remplissez la fiche, puis exportez</b>
+        <span>Le titre et la description se copient en un appui. Le prix proposé est un point de départ : comparez avec trois annonces similaires.</span>
+      </li>
+    </ol>
+
+    <p class="sheettext small">Vos photos ne quittent votre téléphone que si vous appuyez sur « Remplir avec l’IA ».</p>
+    <div class="sheetact"><button class="btn" id="helpDone">J’ai compris</button></div>
+  </div>
+</div>
 
 <div class="sheetwrap" id="settingsSheet" hidden>
   <div class="sheetbox" role="dialog" aria-modal="true" aria-label="Réglages">
@@ -1269,7 +1342,7 @@ async function recompute(asset) {
     // Un détourage raté efface le vêtement : on préfère garder la photo entière
     // et le dire, plutôt que de livrer un visuel vide.
     if (!asset._touched) { asset.settings.removeBg = false; asset.settings.bg = 'none'; }
-    asset.warnings.push('Fond trop proche du vêtement : il a été conservé. Ajustez « Détourage », ou changez de fond de prise de vue.');
+    asset.warnings.push('Le fond ressemble trop au vêtement, il a été conservé. Reprenez la photo sur un drap uni plus clair, ou ajustez « Détourage » dans les réglages fins.');
   }
   if (asset.an.meanY < 68) asset.warnings.push('Prise de vue sombre : la correction pousse le bruit. Refaites-la près d’une fenêtre si possible.');
   if (asset.an.sharp < 3.2) asset.warnings.push('Image un peu floue. La netteté ne rattrape qu’une partie.');
@@ -1309,8 +1382,10 @@ const els = {
 function updateStatus() {
   const n = state.assets.length;
   const busy = state.assets.filter(a => a.status === 'busy').length;
-  els.status.textContent = busy ? `TRAITEMENT · ${busy} EN COURS` : `PRÊT · ${n} VUE${n > 1 ? 'S' : ''}`;
-  els.sheetCount.textContent = `${n} / ${MAX_PHOTOS}`;
+  els.status.textContent = busy
+    ? `TRAITEMENT…`
+    : n === 0 ? 'AUCUNE PHOTO' : `${n} PHOTO${n > 1 ? 'S' : ''}`;
+  els.sheetCount.textContent = `${n} / ${MAX_PHOTOS} max`;
   $('#btnExport').textContent = n > 1 ? `Exporter les ${n} photos` : 'Exporter la photo';
   els.actionbar.hidden = n === 0;
   els.stageImport.hidden = n > 0;
@@ -1323,11 +1398,11 @@ function renderSheet() {
     const f = document.createElement('div');
     f.className = 'frame' + (i === state.selected ? ' is-sel' : '');
     f.innerHTML = `
-      <button class="thumb" aria-label="Vue ${i + 1}">
+      <button class="thumb" aria-label="Photo ${i + 1}">
         ${a.thumbUrl ? `<img src="${a.thumbUrl}" alt="">` : ''}
-        ${i === 0 ? '<span class="cover">COUV</span>' : ''}
+        ${i === 0 ? '<span class="cover">1RE</span>' : ''}
       </button>
-      <button class="kill" aria-label="Supprimer la vue ${i + 1}">×</button>
+      <button class="kill" aria-label="Supprimer la photo ${i + 1}">×</button>
       <div class="meta"><span class="dot ${a.status}"></span><span class="num">${String(i + 1).padStart(2, '0')}</span></div>`;
     f.querySelector('.thumb').onclick = () => select(i);
     f.querySelector('.kill').onclick = (e) => { e.stopPropagation(); removeAsset(i); };
@@ -1335,7 +1410,7 @@ function renderSheet() {
   });
   const add = document.createElement('div');
   add.className = 'frame frame-add';
-  add.innerHTML = `<button class="thumb" aria-label="Ajouter des photos">+</button><div class="meta"><span class="num">AJOUT</span></div>`;
+  add.innerHTML = `<button class="thumb" aria-label="Ajouter des photos">+</button><div class="meta"><span class="num">+</span></div>`;
   add.querySelector('.thumb').onclick = () => els.fileLib.click();
   els.sheet.appendChild(add);
   updateStatus();
@@ -1431,6 +1506,7 @@ const SLIDERS = [
 
 function syncControls() {
   const a = current(); if (!a) return;
+  if ($('#presetHint')) updatePresetHint();
   const s = a.settings;
   SLIDERS.forEach(([id, key, vid, fmt]) => {
     const el = $('#' + id); el.value = s[key] ?? 0; $('#' + vid).textContent = fmt(el.value);
@@ -1482,6 +1558,17 @@ $('#tgShadow').addEventListener('click', () => {
   syncControls(); drawViewer(); refreshThumb(a);
 });
 
+const PRESET_HINT = {
+  fidele:    'Détoure et recadre, sans toucher aux teintes. Le plus sûr pour vendre : l’acheteur reçoit la couleur qu’il a vue.',
+  catalogue: 'Éclaircit et renforce un peu les couleurs. Pour une photo terne ou prise dans une pièce sombre.',
+  doux:      'Fond dégradé et cadrage plus aéré. Rendu magazine, un peu moins fidèle.',
+  naturel:   'Garde votre fond d’origine, corrige seulement la lumière.'
+};
+function updatePresetHint() {
+  const a = current();
+  $('#presetHint').textContent = a && a.settings._preset ? (PRESET_HINT[a.settings._preset] || '') : 'Réglages personnalisés.';
+}
+
 $('#presets').addEventListener('click', (e) => {
   const b = e.target.closest('.chip'); if (!b) return;
   const a = current(); if (!a) return;
@@ -1489,7 +1576,7 @@ $('#presets').addEventListener('click', (e) => {
   const tol = a.settings.tolAdj || 0;
   a.settings = Object.assign({}, p, { tolAdj: tol, _preset: b.dataset.preset });
   a._touched = true;
-  syncControls(); drawViewer(); refreshThumb(a);
+  syncControls(); updatePresetHint(); drawViewer(); refreshThumb(a);
 });
 
 $('#btnApplyAll').addEventListener('click', async () => {
@@ -1504,7 +1591,7 @@ $('#btnApplyAll').addEventListener('click', async () => {
   }
   for (const b of needsReseg) await recompute(b);
   for (const b of state.assets) refreshThumb(b);
-  toast('Réglages appliqués à toutes les vues');
+  toast('Réglages appliqués à toutes les photos');
 });
 
 function refreshThumb(a) {
@@ -1519,7 +1606,7 @@ async function handleFiles(list) {
   if (!files.length) { toast('Aucune image reconnue dans la sélection.'); return; }
   const room = MAX_PHOTOS - state.assets.length;
   const take = files.slice(0, Math.max(0, room));
-  if (files.length > take.length) toast(`Limite de ${MAX_PHOTOS} vues par lot.`);
+  if (files.length > take.length) toast(`Limite de ${MAX_PHOTOS} photos par lot.`);
 
   let done = 0;
   els.prog.style.width = '4%';
@@ -2099,12 +2186,21 @@ async function askGemini() {
       res = await call(model);
     }
 
+    // 503 et 500 : modèle saturé côté Google, rien à voir avec la requête.
+    // Trois reprises espacées suffisent presque toujours.
+    for (let n = 1; n <= 3 && (res.status === 503 || res.status === 500); n++) {
+      btn.textContent = `Serveur occupé, reprise ${n}/3…`;
+      await new Promise(r => setTimeout(r, n * 1800));
+      res = await call(model);
+    }
+
     if (!res.ok) {
       const err = await res.text().catch(() => '');
       if (res.status === 400 && /API key/i.test(err)) throw new Error('Clé refusée. Vérifiez-la dans les réglages.');
       if (res.status === 429) throw new Error('Quota Gemini atteint. Réessayez dans quelques minutes.');
       if (res.status === 403) throw new Error('Accès refusé. La clé n’a peut-être pas l’API Gemini activée.');
       if (res.status === 404) throw new Error(`Le modèle ${model} n’existe pas pour cette clé.`);
+      if (res.status === 503 || res.status === 500) throw new Error('Les serveurs Google sont saturés. Réessayez dans une minute.');
       throw new Error(`Gemini a répondu ${res.status}.`);
     }
 
@@ -2317,6 +2413,16 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(false); });
 window.addEventListener('online', () => checkUpdate(true));
 setInterval(() => checkUpdate(false), UPDATE_INTERVAL);
+
+/* --- tutoriel --- */
+const LS_SEEN = 'propho.help.seen';
+function openHelp() { $('#helpSheet').hidden = false; }
+function closeHelp() { $('#helpSheet').hidden = true; lsSet(LS_SEEN, '1'); }
+$('#btnHelp').addEventListener('click', openHelp);
+$('#helpClose').addEventListener('click', closeHelp);
+$('#helpDone').addEventListener('click', closeHelp);
+$('#helpSheet').addEventListener('click', (e) => { if (e.target.id === 'helpSheet') closeHelp(); });
+if (!lsGet(LS_SEEN)) setTimeout(openHelp, 600);
 
 /* --- format figé --- */
 // Safari autorise encore le pincement malgré le meta viewport : on bloque
