@@ -166,25 +166,12 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 /* ---------------- visionneuse / comparateur ---------------- */
 .viewer{position:relative;border-radius:var(--r-lg);overflow:hidden;background:#fff;border:1px solid var(--line-2);box-shadow:var(--shadow);touch-action:pan-y}
 .viewer canvas{display:block;width:100%;height:auto}
-#cvAfter{position:absolute;inset:0;width:100%;height:100%}
-.handle{
-  position:absolute;top:0;bottom:0;width:2px;background:#fff;
-  box-shadow:0 0 0 1px rgba(16,18,21,.18);transform:translateX(-1px);
-}
-.handle::before{
-  content:"";position:absolute;top:50%;left:50%;width:40px;height:40px;
-  transform:translate(-50%,-50%);border-radius:50%;background:#fff;
-  box-shadow:0 2px 10px rgba(16,18,21,.28);
-}
-.handle::after{
-  content:"◂ ▸";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  font-size:10px;letter-spacing:-1px;color:var(--ink);
-}
+#cvAfter{position:absolute;inset:0;width:100%;height:100%;transition:opacity .12s ease}
 .tag{
   position:absolute;bottom:10px;font-family:var(--mono);font-size:9px;letter-spacing:.14em;
   background:rgba(16,18,21,.72);color:#fff;padding:4px 7px;border-radius:4px;
 }
-.tag.l{left:10px}.tag.r{right:10px}
+.tag.r{right:10px}
 
 /* bandeau afficheur sous la visionneuse */
 .readout{
@@ -375,6 +362,14 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
 .hint{font-size:12px;color:var(--ink-3);margin:14px 2px 0;line-height:1.6}
 .hint b{color:var(--ink-2);font-weight:560}
 
+/* Écran d’accueil : rien à faire défiler tant qu’aucune photo n’est chargée. */
+body.is-empty{overflow:hidden;height:100dvh}
+body.is-empty .wrap{padding-bottom:28px}
+@media (max-height:700px){
+  .drop{min-height:300px;padding:36px 24px;gap:16px}
+  .drop h1{font-size:23px}
+}
+
 [hidden]{display:none !important}
 
 @media (min-width:640px){
@@ -442,10 +437,9 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
     <div class="viewer" id="viewer">
       <canvas id="cvBefore"></canvas>
       <canvas id="cvAfter"></canvas>
-      <div class="handle" id="handle" style="left:50%"></div>
-      <span class="tag l">Original</span>
-      <span class="tag r">Retouché</span>
+      <span class="tag r" id="viewTag">Retouché</span>
     </div>
+    <p class="hint" style="margin-top:8px">Maintenez la photo appuyée pour revoir l’originale.</p>
     <div class="readout lcd" id="readout"></div>
     <div class="notice" id="notice" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v5m0 3.2v.1"/><path d="M10.3 3.9 2.5 17.5A2 2 0 0 0 4.2 20.5h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
@@ -555,17 +549,16 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
       <div class="row"><span class="lcd">Taille</span><div class="ctl"><input class="fld" id="fSize" placeholder="M, 40, 38"></div></div>
       <div class="row"><span class="lcd">Matière</span><div class="ctl"><input class="fld" id="fMat" placeholder="100 % coton"></div></div>
       <div class="row"><span class="lcd">État</span><div class="ctl"><select class="fld" id="fCond"></select></div></div>
-      <div class="row"><span class="lcd">Prix neuf</span><div class="ctl"><input class="fld" id="fRetail" type="number" inputmode="decimal" placeholder="€ — si connu"></div></div>
       <div class="row"><span class="lcd">Mesures</span><div class="ctl"><input class="fld" id="fMeas" placeholder="épaules 42, longueur 64"></div></div>
       <div class="row"><span class="lcd">Détail</span><div class="ctl"><input class="fld" id="fDetails" placeholder="coupe oversize, jamais porté…"></div></div>
       <div class="row"><span class="lcd">Couleurs</span><div class="ctl cols" id="fColors"></div></div>
     </div>
 
     <div class="pricecard">
-      <span class="lcd">Fourchette de départ</span>
+      <span class="lcd">Prix de vente conseillé</span>
       <div class="price"><span id="priceLo">–</span><em>à</em><span id="priceHi">–</span><small>€</small></div>
       <div class="lcd calc" id="priceCalc"></div>
-      <div class="lcd weak" id="priceWeak" hidden>Sans le prix neuf, un barème ne vaut rien sur cette gamme. Renseignez-le.</div>
+      <div class="lcd weak" id="priceWeak" hidden>Sur du créateur, un barème par catégorie ne veut pas dire grand-chose. Fiez-vous à des annonces comparables.</div>
     </div>
     <p class="hint">Vinted n’ouvre pas ses données de vente : ce calcul est un point de départ, pas un prix de marché. Regardez trois annonces comparables avant de publier.</p>
 
@@ -574,6 +567,44 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
       <p class="out" id="outTitle"></p>
       <div class="lrow"><span class="lcd">Description</span><button class="mini" data-copy="outDesc">Copier</button></div>
       <pre class="out desc" id="outDesc"></pre>
+    </div>
+
+    <div class="sec"><span class="idx">05</span><h2>Simulation portée</h2><span class="rule"></span></div>
+
+    <div class="notice" id="tryonWarn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v5m0 3.2v.1"/><path d="M10.3 3.9 2.5 17.5A2 2 0 0 0 4.2 20.5h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+      <span>Image générée par IA, facturée par Google à l’unité. Gardez votre photo à plat en première position et laissez la mention : l’AI&nbsp;Act impose de signaler un visuel généré, et une présentation trompeuse engage votre responsabilité de vendeur.</span>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="row">
+        <span class="lcd">Silhouette</span>
+        <div class="ctl"><div class="seg" id="segSexe">
+          <button data-sexe="femme" aria-pressed="true">Femme</button>
+          <button data-sexe="homme" aria-pressed="false">Homme</button>
+        </div></div>
+      </div>
+      <div class="row">
+        <span class="lcd">Cadrage</span>
+        <div class="ctl"><span class="lcd" id="tryonFraming" style="text-transform:none;letter-spacing:.02em;font-size:12px"></span></div>
+      </div>
+      <div class="row">
+        <span class="lcd">Mention IA</span>
+        <div class="ctl"><button class="sw-toggle" id="tgMention" aria-pressed="true" aria-label="Mention Simulation IA"></button></div>
+      </div>
+    </div>
+
+    <div class="airow" style="margin-top:12px">
+      <button class="btn ghost" id="btnTryon">Générer la simulation</button>
+      <span class="lcd" style="text-transform:none;letter-spacing:.02em;font-size:10.5px;line-height:1.5">Le cadrage suit la catégorie choisie plus haut, et exclut toujours le visage.</span>
+    </div>
+
+    <div id="tryonOut" hidden style="margin-top:12px">
+      <div class="viewer"><img id="tryonImg" alt="Simulation portée" style="display:block;width:100%;height:auto"></div>
+      <div class="panel" style="margin-top:10px">
+        <div class="lrow"><span class="lcd">Simulation</span><button class="mini" id="tryonSave">Enregistrer</button></div>
+        <p class="out" style="font-size:12.5px;color:var(--ink-2)">Placez-la en deuxième ou troisième photo. La première doit rester votre photo réelle à plat.</p>
+      </div>
     </div>
 
     <p class="hint" id="saveHint">Sur iPhone, si le téléchargement est bloqué&nbsp;: <b>appui long sur l’image retouchée → « Ajouter aux photos »</b>.</p>
@@ -828,25 +859,53 @@ function candidateRefs(s) {
   return keep;
 }
 
-/** Diffusion depuis les quatre bords. Cumule dans bg, renvoie le total marqué. */
+/**
+ * Diffusion depuis les quatre bords.
+ *
+ * Un pixel rejoint le fond s'il est proche de la référence, ou s'il est
+ * proche de son voisin déjà classé fond tout en restant dans un couloir
+ * élargi autour d'elle. C'est ce second critère qui permet de traverser un
+ * parquet, un drap froissé ou une chute de lumière : chaque pas est une
+ * petite variation. La rupture franche du vêtement, elle, arrête tout.
+ */
 function floodBorders(buf, ref, tol, bg, stack) {
   const { w, h, data } = buf;
   let sp = 0, filled = 0;
   for (let i = 0; i < bg.length; i++) if (bg[i]) filled++;
-  const seed = (i) => {
+
+  const tolFar = tol * 2.3;     // couloir maximal autour de la référence
+  const tolLocal = tol * 0.5;   // écart toléré entre deux pixels voisins
+
+  const dRef = (p) => dist(data[p], data[p + 1], data[p + 2], ref.r, ref.g, ref.b);
+
+  const seedEdge = (i) => {
     if (bg[i]) return;
-    const p = i << 2;
-    if (dist(data[p], data[p + 1], data[p + 2], ref.r, ref.g, ref.b) < tol) { bg[i] = 1; stack[sp++] = i; filled++; }
+    if (dRef(i << 2) < tol) { bg[i] = 1; stack[sp++] = i; filled++; }
   };
-  for (let x = 0; x < w; x++) { seed(x); seed((h - 1) * w + x); }
-  for (let y = 0; y < h; y++) { seed(y * w); seed(y * w + w - 1); }
+
+  const spread = (j, i) => {
+    if (bg[j]) return;
+    const pj = j << 2;
+    const d = dRef(pj);
+    if (d < tol) { bg[j] = 1; stack[sp++] = j; filled++; return; }
+    if (d < tolFar) {
+      const pi = i << 2;
+      if (dist(data[pj], data[pj + 1], data[pj + 2], data[pi], data[pi + 1], data[pi + 2]) < tolLocal) {
+        bg[j] = 1; stack[sp++] = j; filled++;
+      }
+    }
+  };
+
+  for (let x = 0; x < w; x++) { seedEdge(x); seedEdge((h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { seedEdge(y * w); seedEdge(y * w + w - 1); }
+
   while (sp > 0) {
     const i = stack[--sp];
     const x = i % w, y = (i / w) | 0;
-    if (x > 0)     seed(i - 1);
-    if (x < w - 1) seed(i + 1);
-    if (y > 0)     seed(i - w);
-    if (y < h - 1) seed(i + w);
+    if (x > 0)     spread(i - 1, i);
+    if (x < w - 1) spread(i + 1, i);
+    if (y > 0)     spread(i - w, i);
+    if (y < h - 1) spread(i + w, i);
   }
   return filled;
 }
@@ -1379,7 +1438,7 @@ function renderFinal(asset) {
 const els = {
   drop: $('#drop'), sheet: $('#sheet'), stageImport: $('#stageImport'), stageWork: $('#stageWork'),
   actionbar: $('#actionbar'), status: $('#statusLine'), prog: $('#prog'),
-  cvBefore: $('#cvBefore'), cvAfter: $('#cvAfter'), viewer: $('#viewer'), handle: $('#handle'),
+  cvBefore: $('#cvBefore'), cvAfter: $('#cvAfter'), viewer: $('#viewer'), viewTag: $('#viewTag'),
   readout: $('#readout'), notice: $('#notice'), noticeText: $('#noticeText'), sheetCount: $('#sheetCount'),
   fileCam: $('#fileCam'), fileLib: $('#fileLib')
 };
@@ -1396,6 +1455,7 @@ function updateStatus() {
   const home = $('#btnHome'); if (home) home.hidden = n === 0;
   els.stageImport.hidden = n > 0;
   els.stageWork.hidden = n === 0;
+  document.body.classList.toggle('is-empty', n === 0);
 }
 
 function renderSheet() {
@@ -1456,30 +1516,31 @@ function drawViewer() {
       cv.width = srcCv.width; cv.height = srcCv.height;
       cv.getContext('2d').drawImage(srcCv, 0, 0);
     }
-    applyHandle();
     drawReadout(a2);
   });
 }
 
-let handlePos = 0.5;
-function applyHandle() {
-  els.cvAfter.style.clipPath = `inset(0 0 0 ${handlePos * 100}%)`;
-  els.handle.style.left = `${handlePos * 100}%`;
+/* Appui maintenu : on montre l'originale. Un curseur laissait croire qu'on
+   pouvait retoucher la moitié d'une photo, ce qui n'a aucun sens ici. */
+let peeking = false, peekX = 0, peekY = 0;
+
+function setPeek(on) {
+  peeking = on;
+  els.cvAfter.style.opacity = on ? '0' : '1';
+  els.viewTag.textContent = on ? 'Original' : 'Retouché';
 }
-(function bindHandle() {
-  let dragging = false;
-  const set = (e) => {
-    const r = els.viewer.getBoundingClientRect();
-    const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
-    handlePos = clamp(x / r.width, 0, 1);
-    applyHandle();
-  };
-  const down = (e) => { dragging = true; set(e); };
-  const move = (e) => { if (dragging) { set(e); if (e.cancelable) e.preventDefault(); } };
-  const up = () => { dragging = false; };
-  els.viewer.addEventListener('pointerdown', down);
-  window.addEventListener('pointermove', move, { passive: false });
-  window.addEventListener('pointerup', up);
+
+(function bindPeek() {
+  els.viewer.addEventListener('pointerdown', (e) => {
+    peekX = e.clientX; peekY = e.clientY;
+    setPeek(true);
+  });
+  // Si le doigt part en défilement, on rend la main sans bloquer la page.
+  window.addEventListener('pointermove', (e) => {
+    if (peeking && Math.hypot(e.clientX - peekX, e.clientY - peekY) > 12) setPeek(false);
+  }, { passive: true });
+  ['pointerup', 'pointercancel'].forEach(t =>
+    window.addEventListener(t, () => { if (peeking) setPeek(false); }));
 })();
 
 function drawReadout(a) {
@@ -1893,17 +1954,19 @@ function measureColors(asset) {
 
 /* ---------- barème de prix ---------- */
 const CATS = {
-  tshirt:     { label: 'T-shirt / Top',      base: 8,  liq: 0.95 },
-  chemise:    { label: 'Chemise / Blouse',   base: 11, liq: 0.95 },
-  pull:       { label: 'Pull / Sweat',       base: 13, liq: 1.05 },
-  robe:       { label: 'Robe',               base: 16, liq: 1.00 },
-  jupe:       { label: 'Jupe',               base: 11, liq: 0.95 },
-  pantalon:   { label: 'Pantalon / Jean',    base: 15, liq: 1.00 },
-  veste:      { label: 'Veste / Blazer',     base: 21, liq: 1.05 },
-  manteau:    { label: 'Manteau',            base: 30, liq: 1.10 },
-  chaussures: { label: 'Chaussures',         base: 22, liq: 1.05 },
-  sac:        { label: 'Sac',                base: 20, liq: 1.10 },
-  accessoire: { label: 'Accessoire',         base: 8,  liq: 0.90 }
+  // Prix de revente constaté pour une pièce de milieu de gamme en très bon état.
+  // Les deux autres facteurs (gamme, état) partent de cette base.
+  tshirt:     { label: 'T-shirt / Top',      base: 8  },
+  chemise:    { label: 'Chemise / Blouse',   base: 11 },
+  pull:       { label: 'Pull / Sweat',       base: 13 },
+  robe:       { label: 'Robe',               base: 16 },
+  jupe:       { label: 'Jupe',               base: 11 },
+  pantalon:   { label: 'Pantalon / Jean',    base: 15 },
+  veste:      { label: 'Veste / Blazer',     base: 21 },
+  manteau:    { label: 'Manteau',            base: 30 },
+  chaussures: { label: 'Chaussures',         base: 22 },
+  sac:        { label: 'Sac',                base: 20 },
+  accessoire: { label: 'Accessoire',         base: 8  }
 };
 
 const TIERS = {
@@ -1947,36 +2010,26 @@ function guessTier(brand) {
   return null;
 }
 
-/** Fourchette de prix, avec le détail du calcul pour qu'il soit vérifiable. */
+/** Fourchette de revente, avec le détail du calcul pour qu'il soit vérifiable. */
 function priceRange(f) {
   const cat = CATS[f.cat] || CATS.tshirt;
   const cond = CONDS[f.cond] || CONDS.tres_bon;
   const tier = TIERS[f.tier] || TIERS.milieu;
-  const retail = parseFloat(f.retail);
-  let base, steps;
+  const kEtat = cond.k / CONDS.tres_bon.k;
 
-  if (retail > 0) {
-    base = retail * cond.k * cat.liq;
-    steps = [
-      `${retail.toFixed(0)} € neuf`,
-      `× ${cond.k.toFixed(2)} ${cond.court.toLowerCase()}`,
-      `× ${cat.liq.toFixed(2)} ${cat.label.toLowerCase()}`
-    ];
-  } else {
-    base = cat.base * tier.k * (cond.k / CONDS.tres_bon.k);
-    steps = [
-      `${cat.base} € base ${cat.label.toLowerCase()}`,
-      `× ${tier.k.toFixed(2)} ${tier.label.toLowerCase()}`,
-      `× ${(cond.k / CONDS.tres_bon.k).toFixed(2)} ${cond.court.toLowerCase()}`
-    ];
-  }
+  const base = cat.base * tier.k * kEtat;
+  const steps = [
+    `${cat.base} € base ${cat.label.toLowerCase()}`,
+    `× ${tier.k.toFixed(2)} ${tier.label.toLowerCase()}`,
+    `× ${kEtat.toFixed(2)} ${cond.court.toLowerCase()}`
+  ];
 
   const round = (v) => v >= 40 ? Math.round(v) : Math.round(v * 2) / 2;
   const lo = Math.max(3, round(base * 0.85));
   const hi = Math.max(lo + 1, round(base * 1.18));
-  // Sans prix neuf, une pièce de créateur n'est pas estimable par un barème :
-  // l'écart entre un t-shirt et un sac de la même maison est trop grand.
-  const weak = !(retail > 0) && (f.tier === 'createur' || f.tier === 'premium');
+  // Sur du créateur, l'écart entre un t-shirt et un sac de la même maison
+  // est trop grand pour qu'un barème par catégorie veuille dire quelque chose.
+  const weak = f.tier === 'createur';
   return { lo, hi, steps, base, weak };
 }
 
@@ -2013,9 +2066,9 @@ function buildListing(f, colors) {
   if (mat) L.push('Composition : ' + mat.replace(/\.$/, '') + '.');
   if (f.meas) L.push('Mesures à plat : ' + f.meas.trim() + '.');
   if (f.details) L.push(f.details.trim().replace(/\.?$/, '.'));
-  if (parseFloat(f.retail) > 0) L.push('Prix boutique à l’époque : environ ' + fmt(parseFloat(f.retail)) + ' €.');
 
-  L.push('Photos prises par mes soins, aucun filtre. Envoi rapide et soigné, sous 24 h.');
+  if (f.aiPhoto) L.push('La photo portée est une simulation générée par IA à partir du vêtement réel ; les photos à plat sont les vraies.');
+  L.push('Photos prises par mes soins. Envoi rapide et soigné, sous 24 h.');
   L.push('N’hésitez pas si vous voulez une mesure précise ou une photo supplémentaire.');
 
   return { title, desc: L.join('\n\n') };
@@ -2038,8 +2091,10 @@ async function fetchModels(key) {
   return (d.models || [])
     .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
     .map(m => String(m.name || '').replace(/^models\//, ''))
-    .filter(n => /^gemini/.test(n) && !/embedding|aqa|imagen|image-generation|tts|native-audio|live/.test(n));
+    .filter(n => /^gemini/.test(n) && !/embedding|aqa|tts|native-audio|live/.test(n));
 }
+
+const isImageModel = (n) => /image/.test(n);
 
 /** Classement : version récente, famille Flash, pas d'aperçu. */
 function rankModel(n) {
@@ -2066,7 +2121,7 @@ async function modelCandidates(key, force) {
   let list = [];
   try { list = JSON.parse(lsGet(LS_MODELS) || '[]'); } catch (e) { list = []; }
   if (!list.length || force) {
-    list = (await fetchModels(key)).sort((a, b) => rankModel(b) - rankModel(a));
+    list = (await fetchModels(key)).filter(n => !isImageModel(n)).sort((a, b) => rankModel(b) - rankModel(a));
     if (!list.length) throw new Error('Aucun modèle compatible sur cette clé.');
     lsSet(LS_MODELS, JSON.stringify(list));
   }
@@ -2113,7 +2168,7 @@ async function ping(model, key) {
 
 const listing = {
   cat: 'pull', type: '', brand: '', tier: 'milieu', size: '', mat: '',
-  cond: 'tres_bon', retail: '', meas: '', details: '', colors: []
+  cond: 'tres_bon', meas: '', details: '', colors: [], aiPhoto: false
 };
 
 function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
@@ -2130,7 +2185,7 @@ function fillSelects() {
 
 const FIELD_MAP = [
   ['fCat', 'cat'], ['fType', 'type'], ['fBrand', 'brand'], ['fTier', 'tier'],
-  ['fSize', 'size'], ['fMat', 'mat'], ['fCond', 'cond'], ['fRetail', 'retail'],
+  ['fSize', 'size'], ['fMat', 'mat'], ['fCond', 'cond'],
   ['fMeas', 'meas'], ['fDetails', 'details']
 ];
 
@@ -2194,8 +2249,7 @@ Réponds uniquement par un objet JSON, sans texte autour, avec exactement ces cl
   "matiere": la composition si elle est lisible sur l'étiquette, sinon la matière apparente, ex "100 % coton", "laine mélangée",
   "taille": la taille si elle est lisible sur l'étiquette, sinon null,
   "etat": une valeur parmi ["neuf_etiq","neuf","tres_bon","bon","correct"] d'après l'usure visible,
-  "details": une phrase courte sur une particularité utile à l'acheteur (coupe, détail, défaut visible), sinon null,
-  "prix_neuf_estime": prix boutique d'origine estimé en euros, nombre entier, ou null si tu ne peux pas
+  "details": une phrase courte sur une particularité utile à l'acheteur (coupe, détail, défaut visible), sinon null
 }
 
 Règle absolue : mets null plutôt que de deviner. N'invente jamais une marque, une taille ou une composition qui ne sont pas lisibles sur les photos.`;
@@ -2293,7 +2347,6 @@ function applyAI(info) {
   set('mat', info.matiere);
   set('size', info.taille);
   set('details', info.details);
-  if (typeof info.prix_neuf_estime === 'number' && info.prix_neuf_estime > 0) listing.retail = String(info.prix_neuf_estime);
   const t = guessTier(listing.brand);
   if (t) listing.tier = t;
   writeFields();
@@ -2318,8 +2371,10 @@ async function detectModels(silent) {
   const label = btn.textContent;
   btn.disabled = true; btn.textContent = '…';
   try {
-    const list = await fetchModels(key);
+    const all = await fetchModels(key);
+    const list = all.filter(n => !isImageModel(n));
     lsSet(LS_MODELS, JSON.stringify(list.slice().sort((a, b) => rankModel(b) - rankModel(a))));
+    lsSet(LS_IMG_MODELS, JSON.stringify(all.filter(isImageModel)));
     setModelOptions(list, lsGet(LS_MODEL) || bestModel(list));
     if (!silent) toast(`${list.length} modèle${list.length > 1 ? 's' : ''} disponible${list.length > 1 ? 's' : ''}.`);
   } catch (e) {
@@ -2412,7 +2467,7 @@ function initListing() {
       }
       renderListing();
     });
-    el.addEventListener('change', renderListing);
+    el.addEventListener('change', () => { renderListing(); if (typeof updateFraming === 'function') updateFraming(); });
   }
 
   $$('[data-copy]').forEach(b => b.addEventListener('click', () => copyText($('#' + b.dataset.copy), b)));
@@ -2444,6 +2499,218 @@ function updateAIButton() {
   $('#aiHint').textContent = has
     ? 'Les photos partent chez Google au moment de l’analyse. Le reste de l’app fonctionne hors ligne.'
     : 'Sans clé, remplissez la fiche à la main. L’app reste 100 % locale.';
+}
+
+
+/* =============================================================
+   SIMULATION PORTÉE
+   Le vêtement détouré est envoyé à un modèle d'image, qui le replace
+   sur une silhouette. Trois garde-fous non négociables :
+     — la photo à plat reste toujours la première de l'annonce ;
+     — la description mentionne la génération par IA (AI Act) ;
+     — le cadrage exclut le visage, donc aucun visage n'est fabriqué.
+   ============================================================= */
+const LS_IMG_MODELS = 'propho.gemini.imgmodels';
+const LS_IMG_MODEL  = 'propho.gemini.imgmodel';
+
+const tryon = { sexe: 'femme', mention: true, img: null, busy: false };
+
+/** Cadrage par catégorie : on ne montre que la zone concernée. */
+const FRAMING = {
+  tshirt:     { fr: 'Buste',            en: 'framed from the collarbone to just below the hips, head cropped out of frame' },
+  chemise:    { fr: 'Buste',            en: 'framed from the collarbone to just below the hips, head cropped out of frame' },
+  pull:       { fr: 'Buste',            en: 'framed from the collarbone to just below the hips, head cropped out of frame' },
+  veste:      { fr: 'Buste et hanches', en: 'framed from the shoulders to mid-thigh, head cropped out of frame' },
+  manteau:    { fr: 'Buste et hanches', en: 'framed from the shoulders to mid-calf, head cropped out of frame' },
+  robe:       { fr: 'Silhouette',       en: 'framed from the shoulders to mid-calf, head cropped out of frame' },
+  jupe:       { fr: 'Taille aux pieds', en: 'framed from the waist to the ankles, upper body cropped out of frame' },
+  pantalon:   { fr: 'Taille aux pieds', en: 'framed from the waist to the ankles, upper body cropped out of frame' },
+  chaussures: { fr: 'Jambes et pieds',  en: 'framed from the knees down, showing the feet wearing the shoes' },
+  sac:        { fr: 'Main et épaule',   en: 'held by a forearm and hand only, no torso, no head' },
+  accessoire: { fr: 'Détail porté',     en: 'shown worn, closely framed on the relevant body part, head cropped out of frame' }
+};
+
+function tryonPrompt() {
+  const f = FRAMING[listing.cat] || FRAMING.tshirt;
+  const who = tryon.sexe === 'homme' ? 'an adult man' : 'an adult woman';
+  return `Photograph this exact garment worn by ${who} with an average, realistic, well-proportioned build.
+
+Framing: ${f.en}.
+
+Absolute requirements:
+- Reproduce the garment exactly as shown: same colour, same pattern, same cut, same length, same details, same visible wear. Do not restyle, recolour, lengthen, shorten or clean it.
+- Natural fabric drape and folds, consistent with the material visible in the source image.
+- Plain light grey studio background, soft even lighting, no props, no text, no logo overlay.
+- Photographic realism, as a second-hand clothing listing photo. No illustration, no 3D render.
+- Do not show a face. The head must be outside the frame.
+- Vertical portrait format.`;
+}
+
+/** Le vêtement détouré, sur fond neutre, en entrée du modèle. */
+function tryonSource() {
+  const a = state.assets.find(x => x.alpha);
+  if (!a) return null;
+  const s = Object.assign({}, a.settings, { bg: 'grey', removeBg: a.settings.removeBg, ratio: '3:4' });
+  const cv = compose(
+    { w: a.work.w, h: a.work.h, rgba: applyTone(a.work, a.alpha, a.an, s, a.ref), bbox: a.bbox },
+    s, 1024
+  );
+  return cv.toDataURL('image/jpeg', 0.9).split(',')[1];
+}
+
+async function imageModels(key, force) {
+  let list = [];
+  try { list = JSON.parse(lsGet(LS_IMG_MODELS) || '[]'); } catch (e) { list = []; }
+  if (!list.length || force) {
+    list = (await fetchModels(key)).filter(isImageModel);
+    lsSet(LS_IMG_MODELS, JSON.stringify(list));
+  }
+  // Flash avant Pro : même travail, plusieurs fois moins cher.
+  const rank = (n) => {
+    let s = parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || '0') * 10;
+    if (/flash/.test(n)) s += 8; else if (/pro/.test(n)) s += 2;
+    if (/preview|exp\b/.test(n)) s -= 12;
+    return s;
+  };
+  const pref = lsGet(LS_IMG_MODEL);
+  const sorted = list.slice().sort((a, b) => rank(b) - rank(a));
+  return pref ? [pref, ...sorted.filter(n => n !== pref)] : sorted;
+}
+
+/** Ajoute la mention visible sur l'image rendue. */
+function stampImage(dataUrl, withMention) {
+  return new Promise((res) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      const x = c.getContext('2d');
+      x.drawImage(img, 0, 0);
+      if (withMention) {
+        const pad = Math.round(c.width * 0.028);
+        const fs = Math.max(11, Math.round(c.width * 0.026));
+        x.font = `600 ${fs}px system-ui, -apple-system, Helvetica, Arial, sans-serif`;
+        const label = 'Simulation IA';
+        const w = x.measureText(label).width + fs * 1.5;
+        const h = fs * 2.1;
+        x.fillStyle = 'rgba(16,18,21,.72)';
+        const rx = pad, ry = c.height - pad - h, r = h / 2;
+        x.beginPath();
+        x.moveTo(rx + r, ry); x.lineTo(rx + w - r, ry);
+        x.quadraticCurveTo(rx + w, ry, rx + w, ry + r);
+        x.lineTo(rx + w, ry + h - r);
+        x.quadraticCurveTo(rx + w, ry + h, rx + w - r, ry + h);
+        x.lineTo(rx + r, ry + h);
+        x.quadraticCurveTo(rx, ry + h, rx, ry + h - r);
+        x.lineTo(rx, ry + r);
+        x.quadraticCurveTo(rx, ry, rx + r, ry);
+        x.fill();
+        x.fillStyle = '#fff';
+        x.textBaseline = 'middle';
+        x.fillText(label, rx + fs * 0.75, ry + h / 2 + 1);
+      }
+      res(c.toDataURL('image/jpeg', 0.92));
+    };
+    img.onerror = () => res(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+async function generateTryon() {
+  const key = lsGet(LS_KEY);
+  if (!key) { openSettings(); toast('Ajoutez d’abord votre clé Gemini.'); return; }
+  const src = tryonSource();
+  if (!src) { toast('Chargez d’abord une photo du vêtement.'); return; }
+
+  const btn = $('#btnTryon');
+  const label = btn.textContent;
+  btn.disabled = true; tryon.busy = true;
+
+  try {
+    let models = await imageModels(key, false);
+    if (!models.length) { models = await imageModels(key, true); }
+    if (!models.length) throw new Error('Votre clé ne donne accès à aucun modèle d’image.');
+
+    const payload = (modalities) => JSON.stringify({
+      contents: [{ parts: [
+        { inline_data: { mime_type: 'image/jpeg', data: src } },
+        { text: tryonPrompt() }
+      ] }],
+      generationConfig: { responseModalities: modalities, temperature: 0.35 }
+    });
+
+    let data = null, used = null;
+    for (let i = 0; i < Math.min(3, models.length); i++) {
+      const model = models[i];
+      btn.textContent = i === 0 ? 'Génération…' : 'Autre modèle…';
+      const url = `${API_ROOT}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+      const opts = (m) => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload(m) });
+
+      let r = await fetch(url, opts(['IMAGE']));
+      // Certains modèles exigent encore les deux modalités.
+      if (r.status === 400) r = await fetch(url, opts(['TEXT', 'IMAGE']));
+
+      for (let n = 1; n <= 2 && (r.status === 503 || r.status === 500); n++) {
+        btn.textContent = `Serveur occupé, reprise ${n}/2…`;
+        await sleep(n * 2000);
+        r = await fetch(url, opts(['IMAGE']));
+      }
+
+      if (r.ok) { data = await r.json(); used = model; break; }
+      if (r.status === 404 || r.status === 503 || r.status === 500) continue;
+      if (r.status === 429) throw new Error('Quota d’images atteint. La génération d’images a son propre quota, souvent payant.');
+      if (r.status === 403 || r.status === 400) throw new Error('Modèle d’image refusé. Il faut peut-être activer la facturation sur votre projet Google.');
+      throw new Error(`Le modèle d’image a répondu ${r.status}.`);
+    }
+    if (!data) throw new Error('Aucun modèle d’image disponible pour l’instant.');
+
+    lsSet(LS_IMG_MODEL, used);
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const inline = parts.find(p => p.inline_data || p.inlineData);
+    if (!inline) throw new Error('Le modèle n’a pas renvoyé d’image. Réessayez.');
+    const blob = inline.inline_data || inline.inlineData;
+    const raw = `data:${blob.mime_type || blob.mimeType || 'image/png'};base64,${blob.data}`;
+
+    tryon.img = await stampImage(raw, tryon.mention);
+    $('#tryonImg').src = tryon.img;
+    $('#tryonOut').hidden = false;
+    listing.aiPhoto = true;
+    renderListing();
+    toast(`Simulation générée avec ${used}.`);
+  } catch (e) {
+    console.error(e);
+    toast(e.message || 'La génération a échoué.');
+  } finally {
+    btn.disabled = false; btn.textContent = label; tryon.busy = false;
+  }
+}
+
+function initTryon() {
+  $('#segSexe').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    tryon.sexe = b.dataset.sexe;
+    $$('#segSexe button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  });
+  $('#tgMention').addEventListener('click', async () => {
+    tryon.mention = !tryon.mention;
+    $('#tgMention').setAttribute('aria-pressed', String(tryon.mention));
+    if (tryon.img) { /* on régénère la mention sans rappeler l'API */ }
+  });
+  $('#btnTryon').addEventListener('click', generateTryon);
+  $('#tryonSave').addEventListener('click', () => {
+    if (!tryon.img) return;
+    fetch(tryon.img).then(r => r.blob()).then(b => {
+      download(b, `${slug(listing.type || 'vetement')}-porte-propho.jpg`);
+      toast('Simulation enregistrée');
+    });
+  });
+  updateFraming();
+}
+
+function updateFraming() {
+  const f = FRAMING[listing.cat] || FRAMING.tshirt;
+  const el = $('#tryonFraming');
+  if (el) el.textContent = f.fr;
 }
 
 /* =============================================================
@@ -2529,8 +2796,9 @@ function resetAll() {
   state.selected = -1;
   Object.assign(listing, {
     cat: 'pull', type: '', brand: '', tier: 'milieu', size: '', mat: '',
-    cond: 'tres_bon', retail: '', meas: '', details: '', colors: []
+    cond: 'tres_bon', meas: '', details: '', colors: [], aiPhoto: false
   });
+  tryon.img = null; $('#tryonOut').hidden = true;
   writeFields();
   $('#aiNote').hidden = true;
   refreshColors();
@@ -2572,6 +2840,7 @@ PRESETS.doux._preset = 'doux';
 PRESETS.naturel._preset = 'naturel';
 updateStatus();
 initListing();
+initTryon();
 $('#verNum').textContent = IS_DEV ? 'dev' : APP_VERSION;
 checkUpdate(true);
 
