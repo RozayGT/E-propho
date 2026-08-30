@@ -826,6 +826,20 @@ function toBuffer(src, max) {
    2. DÉTOURAGE
    ============================================================= */
 
+/**
+ * Écart de teinte rapporté à la luminosité. Une ombre multiplie les trois
+ * canaux : elle réduit donc la chroma en proportion, et une comparaison
+ * absolue conclut à tort que la couleur a changé. Le rapport chroma/luminance,
+ * lui, ne bouge pas — du parquet à l'ombre reste du parquet.
+ */
+function hueDist(r1, g1, b1, r2, g2, b2) {
+  const y1 = Math.max(25, 0.299 * r1 + 0.587 * g1 + 0.114 * b1);
+  const y2 = Math.max(25, 0.299 * r2 + 0.587 * g2 + 0.114 * b2);
+  const db = (b1 - y1) / y1 - (b2 - y2) / y2;
+  const dr = (r1 - y1) / y1 - (r2 - y2) / y2;
+  return Math.hypot(db, dr) * 100;
+}
+
 /** Distance perceptuelle approchée, en YCbCr (chroma pondérée fort). */
 function dist(r1, g1, b1, r2, g2, b2) {
   const y1 = 0.299 * r1 + 0.587 * g1 + 0.114 * b1;
@@ -1053,34 +1067,43 @@ function segment(buf, tolAdj) {
     const l = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
     rY += l; rY2 += l * l; rN++;
   }
+  const refY = rN > 50 ? rY / rN : 128;
   const refStd = rN > 50 ? Math.sqrt(Math.max(0, rY2 / rN - (rY / rN) ** 2)) : 6;
   const seuilStd = refStd * 1.5 + 8;
 
+  /* Une zone enfermée est du fond si elle en a la teinte et qu'elle n'est pas
+     plus claire que lui. Le bois à l'ombre d'une étiquette garde exactement la
+     teinte du parquet, il est seulement plus sombre — comparer la couleur
+     globale le faisait échouer. Une étiquette blanche, elle, est plus claire
+     et neutre : elle échoue sur la teinte, ou sur la texture de son texte. */
+  const estFond = (p) => {
+    const r = data[p], g = data[p + 1], b = data[p + 2];
+    if (0.299 * r + 0.587 * g + 0.114 * b > refY + 14) return false;
+    return hueDist(r, g, b, ref.r, ref.g, ref.b) < 12 + tol * 0.15;
+  };
+
   const minHole = n * 0.0015;
-  const tolHole = tol * 0.62;
   const comp = new Int32Array(n);
   const seenHole = new Uint8Array(n);
   for (let st = 0; st < n; st++) {
     if (bg[st] || seenHole[st]) continue;
-    const ps = st << 2;
-    if (dist(data[ps], data[ps + 1], data[ps + 2], ref.r, ref.g, ref.b) >= tolHole) continue;
+    if (!estFond(st << 2)) continue;
 
-    let cn = 0, sumD = 0;
+    let cn = 0, sumYreg = 0, sumYreg2 = 0;
     let hx0 = w, hx1 = -1, hy0 = h, hy1 = -1;
     sp = 0; stack[sp++] = st; seenHole[st] = 1;
     while (sp > 0) {
       const i = stack[--sp];
       comp[cn++] = i;
-      const p = i << 2;
-      sumD += dist(data[p], data[p + 1], data[p + 2], ref.r, ref.g, ref.b);
-
+      const pr = i << 2;
+      const yr = 0.299 * data[pr] + 0.587 * data[pr + 1] + 0.114 * data[pr + 2];
+      sumYreg += yr; sumYreg2 += yr * yr;
       const x = i % w, yy = (i / w) | 0;
       if (x < hx0) hx0 = x; if (x > hx1) hx1 = x;
       if (yy < hy0) hy0 = yy; if (yy > hy1) hy1 = yy;
       const tryPx = (j) => {
         if (bg[j] || seenHole[j]) return;
-        const q = j << 2;
-        if (dist(data[q], data[q + 1], data[q + 2], ref.r, ref.g, ref.b) < tolHole) { seenHole[j] = 1; stack[sp++] = j; }
+        if (estFond(j << 2)) { seenHole[j] = 1; stack[sp++] = j; }
       };
       if (x > 0)      tryPx(i - 1);
       if (x < w - 1)  tryPx(i + 1);
@@ -1102,9 +1125,16 @@ function segment(buf, tolAdj) {
     // Deux critères, tous deux indépendants de la forme : une bande de parquet
     // fine et courbe doit partir aussi bien qu'un grand trou rectangulaire.
     // Une étiquette, elle, échoue sur la couleur ou sur la texture.
-    const vraiTrou = cn >= minHole
-      && sumD / cn < tol * 0.42     // vraiment la couleur du fond
-      && ecartType < seuilStd;      // pas plus texturé que le fond lui-même
+    // Une ombre est franchement plus sombre que le fond ; une étiquette ne
+    // l'est jamais. Quand la zone est sombre, on n'a pas besoin du test de
+    // texture — lequel est faussé ici, le rectangle englobant d'une bande
+    // sinueuse débordant sur l'étiquette voisine.
+    const moyReg = sumYreg / cn;
+    const stdReg = Math.sqrt(Math.max(0, sumYreg2 / cn - moyReg * moyReg));
+    // « Uniformément » sombre : une étiquette dont le texte imprimé est entré
+    // dans la zone a une moyenne basse mais un écart-type énorme.
+    const sombre = moyReg < refY - 6 && stdReg < seuilStd;
+    const vraiTrou = cn >= minHole && (sombre || ecartType < seuilStd);
     if (vraiTrou) { for (let k = 0; k < cn; k++) bg[comp[k]] = 1; filled += cn; }
   }
 
@@ -2087,20 +2117,37 @@ $('#btnApplyAll').addEventListener('click', async () => {
     if (tolChanged) needsReseg.push(b);
   }
   for (const b of needsReseg) await recompute(b);
-  for (const b of state.assets) refreshThumb(b);
+  // Rendu séquentiel, avec une respiration entre chaque, pour ne pas figer
+  // l'écran sur un lot de douze photos.
+  const btn = $('#btnApplyAll');
+  const label = btn.textContent;
+  btn.disabled = true;
+  for (let i = 0; i < state.assets.length; i++) {
+    btn.textContent = `Vignette ${i + 1}/${state.assets.length}…`;
+    await nextFrame();
+    refreshThumb(state.assets[i], true);
+  }
+  btn.disabled = false; btn.textContent = label;
+  drawViewer(false);
   toast('Réglages appliqués à toutes les photos');
 });
 
-let thumbTimer = null;
-function refreshThumb(a) {
+// Un minuteur par photo : un seul minuteur partagé faisait que « Appliquer à
+// toutes les photos » n'en régénérait qu'une, les autres étant annulées.
+const thumbTimers = new Map();
+
+function refreshThumb(a, immediat) {
   if (!a || !a.alpha) return;
-  clearTimeout(thumbTimer);
-  thumbTimer = setTimeout(() => {
+  const faire = () => {
+    thumbTimers.delete(a.id);
     a.thumbUrl = renderPreview(a, 150, false).toDataURL('image/jpeg', 0.7);
     // Reconstruire toute la planche à chaque appui rendait le tactile poussif.
     const img = els.sheet.querySelector(`img[data-id="${a.id}"]`);
     if (img) img.src = a.thumbUrl; else renderSheet();
-  }, 140);
+  };
+  clearTimeout(thumbTimers.get(a.id));
+  if (immediat) { faire(); return; }
+  thumbTimers.set(a.id, setTimeout(faire, 140));
 }
 
 /* --- import --- */
