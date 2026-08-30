@@ -339,6 +339,9 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
 .sheettext.small{font-size:11.5px;margin:4px 0 14px}
 .sheettext.warn{color:var(--warn);background:var(--warn-soft);padding:10px 12px;border-radius:var(--r-md)}
 .sheettext a{color:var(--accent)}
+.modelrow{display:flex;gap:8px;align-items:center;margin:6px 0 2px}
+.modelrow .fld{flex:1;min-width:0}
+.modelrow .btn{flex:none;padding:9px 14px;font-size:13px}
 .sheetact{display:flex;gap:10px;margin-top:6px}
 .sheetact .btn{flex:1;justify-content:center;padding:11px 14px;font-size:13.5px}
 
@@ -418,7 +421,8 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
 
     <div class="sec"><span class="idx">03</span><h2>Rendu</h2><span class="rule"></span></div>
     <div class="presets" id="presets">
-      <button class="chip" data-preset="catalogue" aria-pressed="true">Catalogue</button>
+      <button class="chip" data-preset="fidele" aria-pressed="true">Couleurs fidèles</button>
+      <button class="chip" data-preset="catalogue" aria-pressed="false">Catalogue</button>
       <button class="chip" data-preset="doux" aria-pressed="false">Studio doux</button>
       <button class="chip" data-preset="naturel" aria-pressed="false">Naturel</button>
     </div>
@@ -456,23 +460,23 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
       </div>
       <div class="row">
         <span class="lcd">Luminosité</span>
-        <div class="ctl"><input type="range" id="rgLevels" min="0" max="140" value="95"><span class="val" id="vLevels">95</span></div>
+        <div class="ctl"><input type="range" id="rgLevels" min="0" max="140" value="45"><span class="val" id="vLevels">45</span></div>
       </div>
       <div class="row">
         <span class="lcd">Blancs</span>
-        <div class="ctl"><input type="range" id="rgWb" min="0" max="120" value="85"><span class="val" id="vWb">85</span></div>
+        <div class="ctl"><input type="range" id="rgWb" min="0" max="120" value="0"><span class="val" id="vWb">0</span></div>
       </div>
       <div class="row">
         <span class="lcd">Contraste</span>
-        <div class="ctl"><input type="range" id="rgContrast" min="0" max="100" value="26"><span class="val" id="vContrast">26</span></div>
+        <div class="ctl"><input type="range" id="rgContrast" min="0" max="100" value="6"><span class="val" id="vContrast">6</span></div>
       </div>
       <div class="row">
         <span class="lcd">Couleurs</span>
-        <div class="ctl"><input type="range" id="rgVibrance" min="0" max="100" value="28"><span class="val" id="vVibrance">28</span></div>
+        <div class="ctl"><input type="range" id="rgVibrance" min="0" max="100" value="0"><span class="val" id="vVibrance">0</span></div>
       </div>
       <div class="row">
         <span class="lcd">Netteté</span>
-        <div class="ctl"><input type="range" id="rgSharpen" min="0" max="100" value="42"><span class="val" id="vSharpen">42</span></div>
+        <div class="ctl"><input type="range" id="rgSharpen" min="0" max="100" value="34"><span class="val" id="vSharpen">34</span></div>
       </div>
     </div>
 
@@ -555,8 +559,11 @@ select.fld{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 5
     <input id="sheetKey" class="fld wide" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
     <p class="sheettext small">Créez-la gratuitement sur <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Elle est enregistrée sur cet appareil uniquement, jamais envoyée ailleurs qu’à Google.</p>
     <label class="lcd" for="sheetModel">Modèle</label>
-    <input id="sheetModel" class="fld wide" spellcheck="false" placeholder="gemini-2.5-flash">
-    <p class="sheettext small">Changez-le si Google renomme ses modèles.</p>
+    <div class="modelrow">
+      <select id="sheetModel" class="fld"></select>
+      <button class="btn ghost" id="sheetDetect">Détecter</button>
+    </div>
+    <p class="sheettext small">La liste vient de votre clé. L’app choisit un modèle Flash récent, et redétecte toute seule si Google le renomme.</p>
     <p class="sheettext small warn">Sur l’offre gratuite, Google peut utiliser les photos envoyées pour améliorer ses modèles, et des relecteurs humains peuvent les voir. Activer la facturation supprime cette clause.</p>
     <div class="sheetact">
       <button class="btn ghost" id="sheetForget">Supprimer la clé</button>
@@ -608,9 +615,11 @@ const BACKGROUNDS = {
 };
 
 const PRESETS = {
-  catalogue: { bg:'white',    ratio:'3:4', shadow:true,  margin:9,  levels:95, wb:85, contrast:26, vibrance:28, sharpen:42, removeBg:true },
-  doux:      { bg:'sweep',    ratio:'4:5', shadow:true,  margin:13, levels:80, wb:70, contrast:16, vibrance:34, sharpen:34, removeBg:true },
-  naturel:   { bg:'none',     ratio:'3:4', shadow:false, margin:4,  levels:70, wb:55, contrast:14, vibrance:18, sharpen:30, removeBg:false }
+  // Par défaut : on détoure et on recadre, on ne réinvente pas la couleur.
+  fidele:    { bg:'white',    ratio:'3:4', shadow:true,  margin:9,  levels:45, wb:0,  contrast:6,  vibrance:0,  sharpen:34, removeBg:true },
+  catalogue: { bg:'white',    ratio:'3:4', shadow:true,  margin:9,  levels:78, wb:45, contrast:16, vibrance:12, sharpen:42, removeBg:true },
+  doux:      { bg:'sweep',    ratio:'4:5', shadow:true,  margin:13, levels:66, wb:35, contrast:11, vibrance:16, sharpen:34, removeBg:true },
+  naturel:   { bg:'none',     ratio:'3:4', shadow:false, margin:4,  levels:55, wb:20, contrast:8,  vibrance:6,  sharpen:30, removeBg:false }
 };
 
 /* ---------- état ---------- */
@@ -959,18 +968,22 @@ function analyze(buf, alpha, ref, bgFrac) {
   for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= hiT) { hi = v; break; } }
   if (hi - lo < 24) { lo = Math.max(0, lo - 12); hi = Math.min(255, hi + 12); }
 
-  // balance des blancs : le fond sert de référence neutre s'il est clair.
+  // Balance des blancs. Le fond ne sert de référence que s'il est vraiment
+  // neutre : sur une couette beige ou un parquet, le « corriger » déplacerait
+  // aussi la couleur du vêtement, ce qui est le pire défaut possible ici.
   let gains = { r: 1, g: 1, b: 1 };
+  let wbSource = 'aucune';
   const refY = 0.299 * ref.r + 0.587 * ref.g + 0.114 * ref.b;
-  if (bgFrac > 0.14 && refY > 105) {
+  const refChroma = Math.max(ref.r, ref.g, ref.b) - Math.min(ref.r, ref.g, ref.b);
+  if (bgFrac > 0.14 && refY > 105 && refChroma < 17) {
     gains = { r: refY / Math.max(1, ref.r), g: refY / Math.max(1, ref.g), b: refY / Math.max(1, ref.b) };
-  } else {
-    const m = (sr + sg + sb) / (3 * count);
-    gains = { r: m / Math.max(1, sr / count), g: m / Math.max(1, sg / count), b: m / Math.max(1, sb / count) };
+    wbSource = 'fond neutre';
   }
-  gains.r = clamp(gains.r, 0.84, 1.20);
-  gains.g = clamp(gains.g, 0.84, 1.20);
-  gains.b = clamp(gains.b, 0.84, 1.20);
+  // Pas de repli sur le monde-gris : sur une pièce unie, il annulerait
+  // volontairement la couleur du vêtement.
+  gains.r = clamp(gains.r, 0.92, 1.10);
+  gains.g = clamp(gains.g, 0.92, 1.10);
+  gains.b = clamp(gains.b, 0.92, 1.10);
 
   // netteté perçue : variance du laplacien sur le sujet
   let lap = 0, lc = 0;
@@ -983,7 +996,7 @@ function analyze(buf, alpha, ref, bgFrac) {
   }
   const kelvin = Math.round(5200 * (gains.b / gains.r));
   return {
-    lo, hi, gains,
+    lo, hi, gains, wbSource,
     meanY: sumY / count,
     sharp: lc ? Math.sqrt(lap / lc) : 0,
     kelvin: clamp(kelvin, 2200, 9500)
@@ -1219,7 +1232,7 @@ async function ingest(file) {
     id: ++state.seq,
     name: file.name || `photo-${state.seq}.jpg`,
     status: 'busy',
-    settings: Object.assign({}, PRESETS.catalogue),
+    settings: Object.assign({}, PRESETS.fidele),
     thumbUrl: null
   };
   state.assets.push(asset);
@@ -1395,7 +1408,7 @@ function drawReadout(a) {
   const H = ratio <= 1 ? OUT_MAX : Math.round(OUT_MAX / ratio);
   const bits = [
     `Fond <b>${s.removeBg && s.bg !== 'none' ? 'remplacé' : 'conservé'}</b>`,
-    `WB <b>${a.an.kelvin}K</b>`,
+    `WB <b>${s.wb > 0 && a.an.wbSource !== 'aucune' ? a.an.kelvin + 'K' : 'non touchée'}</b>`,
     `Niveaux <b>${a.an.lo}–${a.an.hi}</b>`,
     `Sujet <b>${Math.round((1 - a.bgFrac) * 100)}%</b>`,
     `<b>${W}×${H}</b>`
@@ -1921,7 +1934,47 @@ function buildListing(f, colors) {
    ============================================================= */
 const LS_KEY = 'propho.gemini.key';
 const LS_MODEL = 'propho.gemini.model';
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = '';   // vide : l'app interroge la clé pour savoir quoi utiliser
+const API_ROOT = 'https://generativelanguage.googleapis.com/v1beta';
+
+/** Modèles réellement disponibles pour cette clé, aujourd'hui. */
+async function fetchModels(key) {
+  const r = await fetch(`${API_ROOT}/models?pageSize=200&key=${encodeURIComponent(key)}`);
+  if (!r.ok) throw new Error(`Liste des modèles indisponible (${r.status}).`);
+  const d = await r.json();
+  return (d.models || [])
+    .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map(m => String(m.name || '').replace(/^models\//, ''))
+    .filter(n => /^gemini/.test(n) && !/embedding|aqa|imagen|image-generation|tts|native-audio|live/.test(n));
+}
+
+/** Classement : version récente, famille Flash, pas d'aperçu. */
+function rankModel(n) {
+  let s = 0;
+  const v = parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || '0');
+  s += v * 10;
+  if (/flash/.test(n) && !/lite/.test(n)) s += 6;
+  else if (/lite/.test(n)) s += 4;
+  else if (/pro/.test(n)) s += 1;          // quota gratuit trop serré sur Pro
+  if (/preview|exp\b/.test(n)) s -= 3;
+  if (/\d{6,}$/.test(n)) s -= 1;           // versions datées figées
+  if (/latest$/.test(n)) s += 1;
+  return s;
+}
+
+function bestModel(list) {
+  return list.slice().sort((a, b) => rankModel(b) - rankModel(a))[0] || '';
+}
+
+async function resolveModel(key, force) {
+  const saved = lsGet(LS_MODEL);
+  if (saved && !force) return saved;
+  const list = await fetchModels(key);
+  const pick = bestModel(list);
+  if (!pick) throw new Error('Aucun modèle compatible sur cette clé.');
+  lsSet(LS_MODEL, pick);
+  return pick;
+}
 
 const listing = {
   cat: 'pull', type: '', brand: '', tier: 'milieu', size: '', mat: '',
@@ -2026,24 +2079,32 @@ async function askGemini() {
     const parts = shots.map(a => ({ inline_data: { mime_type: 'image/jpeg', data: jpegFromBuffer(a.prev, 700, 0.72) } }));
     parts.push({ text: AI_PROMPT });
 
-    const model = lsGet(LS_MODEL) || DEFAULT_MODEL;
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: { temperature: 0.2, responseMimeType: 'application/json' }
-        })
-      }
+    const body = JSON.stringify({
+      contents: [{ parts }],
+      generationConfig: { temperature: 0.2, responseMimeType: 'application/json' }
+    });
+    const call = (model) => fetch(
+      `${API_ROOT}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
     );
 
+    let model = await resolveModel(key, false);
+    let res = await call(model);
+
+    // 404 : le modèle mémorisé n'existe plus. Google en renomme régulièrement,
+    // on redemande la liste à la clé et on réessaie une fois.
+    if (res.status === 404) {
+      btn.textContent = 'Recherche du modèle…';
+      model = await resolveModel(key, true);
+      res = await call(model);
+    }
+
     if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      if (res.status === 400 && /API key/i.test(body)) throw new Error('Clé refusée. Vérifiez-la dans les réglages.');
+      const err = await res.text().catch(() => '');
+      if (res.status === 400 && /API key/i.test(err)) throw new Error('Clé refusée. Vérifiez-la dans les réglages.');
       if (res.status === 429) throw new Error('Quota Gemini atteint. Réessayez dans quelques minutes.');
       if (res.status === 403) throw new Error('Accès refusé. La clé n’a peut-être pas l’API Gemini activée.');
+      if (res.status === 404) throw new Error(`Le modèle ${model} n’existe pas pour cette clé.`);
       throw new Error(`Gemini a répondu ${res.status}.`);
     }
 
@@ -2080,10 +2141,38 @@ function applyAI(info) {
 }
 
 /* ---------- réglages ---------- */
+function setModelOptions(list, current) {
+  const sel = $('#sheetModel');
+  const opts = list.slice().sort((a, b) => rankModel(b) - rankModel(a));
+  if (current && !opts.includes(current)) opts.unshift(current);
+  sel.innerHTML = opts.length
+    ? opts.map(n => `<option value="${n}">${n}</option>`).join('')
+    : '<option value="">— détection nécessaire —</option>';
+  if (current) sel.value = current;
+}
+
+async function detectModels(silent) {
+  const key = $('#sheetKey').value.trim() || lsGet(LS_KEY);
+  if (!key) { if (!silent) toast('Renseignez d’abord la clé.'); return; }
+  const btn = $('#sheetDetect');
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const list = await fetchModels(key);
+    setModelOptions(list, lsGet(LS_MODEL) || bestModel(list));
+    if (!silent) toast(`${list.length} modèle${list.length > 1 ? 's' : ''} disponible${list.length > 1 ? 's' : ''}.`);
+  } catch (e) {
+    if (!silent) toast(e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+
 function openSettings() {
   $('#sheetKey').value = lsGet(LS_KEY);
-  $('#sheetModel').value = lsGet(LS_MODEL) || DEFAULT_MODEL;
+  setModelOptions(lsGet(LS_MODEL) ? [lsGet(LS_MODEL)] : [], lsGet(LS_MODEL));
   $('#settingsSheet').hidden = false;
+  if (lsGet(LS_KEY)) detectModels(true);
 }
 function closeSettings() { $('#settingsSheet').hidden = true; }
 
@@ -2134,6 +2223,7 @@ function initListing() {
     toast($('#sheetKey').value.trim() ? 'Clé enregistrée sur cet appareil.' : 'Clé supprimée.');
     updateAIButton();
   });
+  $('#sheetDetect').addEventListener('click', () => detectModels(false));
   $('#sheetForget').addEventListener('click', () => {
     $('#sheetKey').value = '';
     lsSet(LS_KEY, ''); closeSettings(); toast('Clé supprimée de cet appareil.'); updateAIButton();
@@ -2237,6 +2327,7 @@ document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: fals
 
 /* --- init --- */
 Object.values(PRESETS).forEach((p, i) => { p.tolAdj = 0; });
+PRESETS.fidele._preset = 'fidele';
 PRESETS.catalogue._preset = 'catalogue';
 PRESETS.doux._preset = 'doux';
 PRESETS.naturel._preset = 'naturel';
