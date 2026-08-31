@@ -1997,7 +1997,8 @@ function drawViewer(fast) {
 
 /* Appui maintenu : on montre l'originale. Un curseur laissait croire qu'on
    pouvait retoucher la moitié d'une photo, ce qui n'a aucun sens ici. */
-let peeking = false, peekX = 0, peekY = 0, brushing = false;
+let peeking = false, peekX = 0, peekY = 0, peekTimer = null;
+let brushing = false, lastFx = 0, lastFy = 0;
 
 function setPeek(on) {
   peeking = on;
@@ -2005,22 +2006,69 @@ function setPeek(on) {
   els.viewTag.textContent = on ? 'Original' : 'Retouché';
 }
 
-(function bindPeek() {
-  els.viewer.addEventListener('pointerdown', (e) => {
-    if (edit.on) { brushing = true; editStroke(e.clientX, e.clientY, true); e.preventDefault(); return; }
+/** Position du doigt, en fraction du cadre affiché. */
+function fracAt(e) {
+  const r = els.viewer.getBoundingClientRect();
+  return { fx: (e.clientX - r.left) / r.width, fy: (e.clientY - r.top) / r.height };
+}
+
+/**
+ * Gestes sur la photo.
+ *
+ * En correction, on capture le pointeur : le trait continue même si le doigt
+ * sort du cadre, et les écouteurs sont non passifs pour que preventDefault
+ * soit réellement pris en compte — sans quoi la page défile pendant qu'on
+ * peint. Hors correction, l'aperçu de l'originale attend 110 ms : sans ce
+ * délai, l'image clignotait à chaque amorce de défilement.
+ */
+(function bindViewer() {
+  const v = els.viewer;
+
+  v.addEventListener('pointerdown', (e) => {
+    if (edit.on) {
+      brushing = true;
+      try { v.setPointerCapture(e.pointerId); } catch (err) { /* sans capture, ça marche quand même */ }
+      const p = fracAt(e);
+      lastFx = p.fx; lastFy = p.fy;
+      editStroke(p.fx, p.fy, true);
+      e.preventDefault();
+      return;
+    }
     peekX = e.clientX; peekY = e.clientY;
-    setPeek(true);
-  });
-  // Si le doigt part en défilement, on rend la main sans bloquer la page.
-  window.addEventListener('pointermove', (e) => {
-    if (edit.on) { if (brushing) { editStroke(e.clientX, e.clientY, false); e.preventDefault(); } return; }
-    if (peeking && Math.hypot(e.clientX - peekX, e.clientY - peekY) > 12) setPeek(false);
-  }, { passive: true });
-  ['pointerup', 'pointercancel'].forEach(t =>
-    window.addEventListener(t, () => {
-      if (brushing) { brushing = false; editEnd(); return; }
+    clearTimeout(peekTimer);
+    peekTimer = setTimeout(() => setPeek(true), 110);
+  }, { passive: false });
+
+  v.addEventListener('pointermove', (e) => {
+    if (brushing) {
+      const p = fracAt(e);
+      editStrokeTo(p.fx, p.fy);
+      e.preventDefault();
+      return;
+    }
+    if (Math.hypot(e.clientX - peekX, e.clientY - peekY) > 10) {
+      clearTimeout(peekTimer);
       if (peeking) setPeek(false);
-    }));
+    }
+  }, { passive: false });
+
+  const relacher = (e) => {
+    if (brushing) {
+      brushing = false;
+      try { v.releasePointerCapture(e.pointerId); } catch (err) { /* déjà relâché */ }
+      editEnd();
+      return;
+    }
+    clearTimeout(peekTimer);
+    if (peeking) setPeek(false);
+  };
+  v.addEventListener('pointerup', relacher);
+  v.addEventListener('pointercancel', relacher);
+  // Filet de sécurité si le doigt est relâché hors du cadre sans capture.
+  window.addEventListener('pointerup', () => {
+    clearTimeout(peekTimer);
+    if (!brushing && peeking) setPeek(false);
+  });
 })();
 
 function drawReadout(a) {
@@ -3406,17 +3454,29 @@ function leaveEdit() {
 }
 
 let brushRaf = false;
-function editStroke(clientX, clientY, debut) {
+function editStroke(fx, fy, debut) {
   const a = current(); if (!a || !a.alpha) return;
-  const r = els.viewer.getBoundingClientRect();
-  const fx = (clientX - r.left) / r.width;
-  const fy = (clientY - r.top) / r.height;
-  if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return;
   if (debut) {
     edit.undo.push(a.alpha.slice(0));
     if (edit.undo.length > 6) edit.undo.shift();
   }
-  brushAt(a, fx, fy);
+  brushAt(a, clamp(fx, 0, 1), clamp(fy, 0, 1));
+  if (!brushRaf) {
+    brushRaf = true;
+    requestAnimationFrame(() => { brushRaf = false; drawEdit(true); });
+  }
+}
+
+/** Relie la position précédente à la nouvelle : sinon le trait est troué. */
+function editStrokeTo(fx, fy) {
+  const a = current(); if (!a || !a.alpha) return;
+  const dx = fx - lastFx, dy = fy - lastFy;
+  const d = Math.hypot(dx, dy);
+  const rFrac = (edit.taille / 100) * Math.min(a.work.w, a.work.h) / Math.max(a.work.w, a.work.h);
+  const pas = Math.max(0.004, rFrac * 0.4);
+  const n = Math.min(30, Math.max(1, Math.ceil(d / pas)));
+  for (let i = 1; i <= n; i++) brushAt(a, lastFx + dx * i / n, lastFy + dy * i / n);
+  lastFx = fx; lastFy = fy;
   if (!brushRaf) {
     brushRaf = true;
     requestAnimationFrame(() => { brushRaf = false; drawEdit(true); });
