@@ -600,10 +600,23 @@ body.is-empty .wrap{padding-bottom:28px}
       <div class="row"><span class="lcd">Taille</span><div class="ctl"><input class="fld" id="fSize" placeholder="M, 40, 38"></div></div>
       <div class="row"><span class="lcd">Matière</span><div class="ctl"><input class="fld" id="fMat" placeholder="100 % coton"></div></div>
       <div class="row"><span class="lcd">État</span><div class="ctl"><select class="fld" id="fCond"></select></div></div>
-      <div class="row"><span class="lcd">Mesures</span><div class="ctl"><input class="fld" id="fMeas" placeholder="épaules 42, longueur 64"></div></div>
+      <div class="row">
+        <span class="lcd">Mesurer</span>
+        <div class="ctl" style="gap:8px">
+          <select class="fld" id="fRefCle" style="flex:1;min-width:0"></select>
+          <input class="fld" id="fRefCm" type="number" inputmode="decimal" placeholder="cm" style="max-width:88px">
+        </div>
+      </div>
+      <div class="row">
+        <span class="lcd">Cotes</span>
+        <div class="ctl"><span class="lcd" id="fMeasAuto" style="text-transform:none;letter-spacing:.02em;font-size:11.5px;line-height:1.5;text-align:right"></span></div>
+      </div>
+      <div class="row"><span class="lcd">Mesures</span><div class="ctl"><input class="fld" id="fMeas" placeholder="renseignées automatiquement"></div></div>
       <div class="row"><span class="lcd">Détail</span><div class="ctl"><input class="fld" id="fDetails" placeholder="coupe oversize, jamais porté…"></div></div>
       <div class="row"><span class="lcd">Couleurs</span><div class="ctl cols" id="fColors"></div></div>
     </div>
+
+    <p class="hint">L’app relève la silhouette au pixel près, mais une photo ne contient aucune échelle. Mesurez <b>une seule</b> cote au mètre ruban, choisissez-la ci-dessus, et les autres s’en déduisent. Posez le vêtement bien à plat et tenez le téléphone parallèle au sol&nbsp;: une photo de biais fausse tout.</p>
 
     <div class="pricecard">
       <span class="lcd">Prix de vente conseillé</span>
@@ -1082,7 +1095,7 @@ function segment(buf, tolAdj) {
     return hueDist(r, g, b, ref.r, ref.g, ref.b) < 12 + tol * 0.15;
   };
 
-  const minHole = n * 0.0015;
+  const minHole = n * 0.0004;
   const comp = new Int32Array(n);
   const seenHole = new Uint8Array(n);
   for (let st = 0; st < n; st++) {
@@ -1154,6 +1167,26 @@ function segment(buf, tolAdj) {
       if (y < h - 1) tryPx(i + w);
     }
     if (cn < minBlob) { for (let k = 0; k < cn; k++) { bg[comp[k]] = 1; filled++; } }
+  }
+
+  /* Épluchage. Les pixels situés juste à la frontière sont un mélange de fond
+     et de vêtement : ni la diffusion ni la passe des trous ne les traite, et
+     ils forment le liseré qu'on voit autour du sujet. On retire ceux qui
+     penchent encore nettement du côté du fond, sur deux pixels au plus. */
+  const tolPeel = tol * 1.15;
+  for (let tour = 0; tour < 2; tour++) {
+    const aRetirer = [];
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const i = y * w + x;
+        if (bg[i]) continue;
+        if (!bg[i - 1] && !bg[i + 1] && !bg[i - w] && !bg[i + w]) continue;
+        const p = i << 2;
+        if (dist(data[p], data[p + 1], data[p + 2], ref.r, ref.g, ref.b) < tolPeel) aRetirer.push(i);
+      }
+    }
+    if (!aRetirer.length) break;
+    for (const i of aRetirer) { bg[i] = 1; filled++; }
   }
 
   const centre = centreFrac(bg, w, h);
@@ -1846,7 +1879,7 @@ async function recompute(asset) {
   asset.thumbUrl = renderPreview(asset, 150).toDataURL('image/jpeg', 0.7);
   renderSheet();
   updateStatus();
-  if (typeof refreshColors === 'function') { refreshColors(); renderListing(); }
+  if (typeof refreshColors === 'function') { refreshColors(); refreshMesures(); renderListing(); }
 }
 
 /**
@@ -1922,7 +1955,7 @@ function renderSheet() {
 
 function removeAsset(i) {
   state.assets.splice(i, 1);
-  if (typeof refreshColors === 'function') { refreshColors(); renderListing(); }
+  if (typeof refreshColors === 'function') { refreshColors(); refreshMesures(); renderListing(); }
   if (state.selected >= state.assets.length) state.selected = state.assets.length - 1;
   renderSheet();
   if (state.assets.length) drawViewer(false); else { state.selected = -1; }
@@ -2607,6 +2640,113 @@ function buildListing(f, colors) {
 }
 
 
+
+/* =============================================================
+   MESURES
+   Le masque du détourage donne la silhouette au pixel près. Une photo
+   ne porte aucune échelle : l'utilisateur donne une cote réelle, tout
+   le reste s'en déduit par proportion.
+   ============================================================= */
+
+/** Largeur du sujet, ligne par ligne, en pixels. */
+function widthProfile(alpha, w, h, bbox) {
+  const prof = new Int32Array(bbox.h);
+  for (let k = 0; k < bbox.h; k++) {
+    const y = bbox.y + k;
+    let x0 = -1, x1 = -1;
+    const o = y * w;
+    for (let x = bbox.x; x < bbox.x + bbox.w; x++) {
+      if (alpha[o + x] > 128) { if (x0 < 0) x0 = x; x1 = x; }
+    }
+    prof[k] = x0 < 0 ? 0 : x1 - x0 + 1;
+  }
+  return prof;
+}
+
+/** Médiane glissante : supprime les accidents dus aux plis et au bruit. */
+function lisser(prof, r) {
+  const out = new Int32Array(prof.length);
+  const buf = [];
+  for (let i = 0; i < prof.length; i++) {
+    buf.length = 0;
+    for (let j = Math.max(0, i - r); j <= Math.min(prof.length - 1, i + r); j++) buf.push(prof[j]);
+    buf.sort((a, b) => a - b);
+    out[i] = buf[buf.length >> 1];
+  }
+  return out;
+}
+
+const HAUTS = ['tshirt', 'chemise', 'pull', 'veste', 'manteau', 'robe'];
+const BAS = ['pantalon', 'jupe'];
+
+/**
+ * Cotes en pixels. Pour un haut : le point le plus large en haut donne le
+ * manche à manche, le rétrécissement juste en dessous donne la poitrine.
+ * Pour un bas : la ceinture en haut, les hanches au point le plus large.
+ */
+function measurePx(alpha, w, h, bbox, cat) {
+  if (!bbox || bbox.h < 20 || bbox.w < 20) return null;
+  const prof = lisser(widthProfile(alpha, w, h, bbox), Math.max(2, (bbox.h / 90) | 0));
+  const H = bbox.h;
+  const at = (f) => prof[clamp((H * f) | 0, 0, H - 1)];
+
+  const out = { longueur: H };
+
+  if (BAS.includes(cat)) {
+    out.taille = Math.min(at(0.02), at(0.04), at(0.07));   // la ceinture, pas les hanches
+    let max = 0;
+    for (let k = (H * 0.05) | 0; k < H * 0.40; k++) if (prof[k] > max) max = prof[k];
+    out.hanches = max;
+    out.ourlet = Math.max(at(0.94), at(0.97));
+    return out;
+  }
+
+  // Point le plus large du haut du vêtement : bout de manche à bout de manche.
+  let max = 0, ligneMax = 0;
+  const finHaut = Math.max(4, (H * 0.45) | 0);
+  for (let k = 0; k < finHaut; k++) if (prof[k] > max) { max = prof[k]; ligneMax = k; }
+  out.mancheAManche = max;
+
+  // Rétrécissement sous l'emmanchure : la poitrine. Absent sur un débardeur.
+  let min = max, ligneMin = -1;
+  for (let k = ligneMax + 1; k < Math.min(H - 1, H * 0.60); k++) {
+    if (prof[k] > 0 && prof[k] < min) { min = prof[k]; ligneMin = k; }
+  }
+  if (ligneMin > 0 && min < max * 0.92) out.poitrine = min;
+
+  out.ourlet = Math.max(at(0.94), at(0.97));
+  return out;
+}
+
+const NOMS = {
+  mancheAManche: 'manche à manche',
+  poitrine: 'poitrine',
+  taille: 'taille',
+  hanches: 'hanches',
+  longueur: 'longueur',
+  ourlet: 'bas'
+};
+
+/** Convertit en centimètres à partir d'une cote connue, et rédige la ligne. */
+function measureCm(px, refCle, refCm) {
+  if (!px || !(refCm > 0) || !px[refCle]) return null;
+  const k = refCm / px[refCle];
+  const ordre = ['mancheAManche', 'poitrine', 'taille', 'hanches', 'longueur', 'ourlet'];
+  // Sur une coupe droite, le bas égale la poitrine ou les hanches : inutile
+  // d'encombrer l'annonce d'une cote qui n'apprend rien.
+  const large = px.poitrine || px.hanches;
+  const filtre = (cle) => !(cle === 'ourlet' && large && Math.abs(px.ourlet - large) < large * 0.05);
+  const cotes = {};
+  const bouts = [];
+  for (const cle of ordre) {
+    if (!px[cle] || !filtre(cle)) continue;
+    const cm = Math.round(px[cle] * k * 2) / 2;
+    cotes[cle] = cm;
+    bouts.push(`${NOMS[cle]} ${String(cm).replace('.', ',')} cm`);
+  }
+  return { cotes, texte: bouts.join(', ') };
+}
+
 /* =============================================================
    INTERFACE — FICHE, PRIX, ANNONCE, ASSISTANT IA
    ============================================================= */
@@ -2698,9 +2838,12 @@ async function ping(model, key) {
   }
 }
 
+let cotesPx = null;   // cotes en pixels de la vue de couverture
+
 const listing = {
   cat: 'pull', type: '', brand: '', tier: 'milieu', size: '', mat: '',
-  cond: 'tres_bon', meas: '', details: '', colors: [], aiPhoto: false
+  cond: 'tres_bon', meas: '', details: '', colors: [], aiPhoto: false,
+  refCle: 'longueur', refCm: ''
 };
 
 function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
@@ -2718,7 +2861,8 @@ function fillSelects() {
 const FIELD_MAP = [
   ['fCat', 'cat'], ['fType', 'type'], ['fBrand', 'brand'], ['fTier', 'tier'],
   ['fSize', 'size'], ['fMat', 'mat'], ['fCond', 'cond'],
-  ['fMeas', 'meas'], ['fDetails', 'details']
+  ['fMeas', 'meas'], ['fDetails', 'details'],
+  ['fRefCle', 'refCle'], ['fRefCm', 'refCm']
 ];
 
 function readFields() {
@@ -2739,6 +2883,46 @@ function refreshColors() {
   box.innerHTML = listing.colors.map(c =>
     `<span class="chipcol"><i style="background:${c.hex}"></i>${c.name} ${Math.round(c.share * 100)}%</span>`
   ).join('');
+}
+
+/* ---------- mesures ---------- */
+/**
+ * Les cotes sont relevées sur la vue de couverture. La photo ne porte aucune
+ * échelle : l'utilisateur donne une cote au mètre ruban, le reste suit par
+ * proportion. Une erreur sur la référence se propage à toutes les autres,
+ * d'où le choix de n'en demander qu'une seule, la plus facile à mesurer.
+ */
+function refreshMesures() {
+  const cover = state.assets.find(a => a.alpha);
+  const sel = $('#fRefCle');
+  const sortie = $('#fMeasAuto');
+  if (!sel) return;
+
+  cotesPx = cover ? measurePx(cover.alpha, cover.work.w, cover.work.h, cover.bbox, listing.cat) : null;
+  if (!cotesPx) {
+    sel.innerHTML = '<option value="">—</option>';
+    sortie.textContent = 'en attente d’une photo';
+    return;
+  }
+
+  const dispo = Object.keys(cotesPx).filter(k => cotesPx[k] > 0);
+  sel.innerHTML = dispo.map(k => `<option value="${k}">${NOMS[k]}</option>`).join('');
+  if (!dispo.includes(listing.refCle)) listing.refCle = dispo.includes('longueur') ? 'longueur' : dispo[0];
+  sel.value = listing.refCle;
+
+  const cm = parseFloat(String(listing.refCm).replace(',', '.'));
+  if (!(cm > 0)) {
+    sortie.textContent = `${dispo.length} cotes relevées — donnez-en une en cm`;
+    return;
+  }
+  const r = measureCm(cotesPx, listing.refCle, cm);
+  if (!r) { sortie.textContent = 'mesure impossible'; return; }
+  sortie.textContent = r.texte;
+  listing.meas = r.texte;
+  const champ = $('#fMeas');
+  if (champ) champ.value = r.texte;
+
+  if (cover && !cover.confident) sortie.textContent += ' — détourage incertain, vérifiez';
 }
 
 /* ---------- rendu du prix et du texte ---------- */
@@ -3002,18 +3186,21 @@ function initListing() {
   setTimeout(paintSwatches, 0);
   fillSelects();
   writeFields();
+  refreshMesures();
 
   for (const [id] of FIELD_MAP) {
     const el = $('#' + id);
     if (!el) continue;
     el.addEventListener('input', () => {
+      if (id === 'fRefCle' || id === 'fRefCm') { refreshMesures(); }
+      if (id === 'fCat') { refreshMesures(); }
       if (id === 'fBrand') {
         const t = guessTier(el.value);
         if (t) { listing.tier = t; $('#fTier').value = t; }
       }
       renderListing();
     });
-    el.addEventListener('change', renderListing);
+    el.addEventListener('change', () => { if (id === 'fCat' || id === 'fRefCle') refreshMesures(); renderListing(); });
   }
 
   $$('[data-copy]').forEach(b => b.addEventListener('click', () => copyText($('#' + b.dataset.copy), b)));
@@ -3213,6 +3400,8 @@ function leaveEdit() {
   $('#editHint').hidden = true;
   const a = current();
   if (a) refreshThumb(a);
+  refreshMesures();
+  renderListing();
   drawViewer(false);
 }
 
@@ -3562,6 +3751,7 @@ function resetAll() {
   writeFields();
   $('#aiNote').hidden = true;
   refreshColors();
+  refreshMesures();
   renderListing();
   renderSheet();
   updateStatus();
