@@ -1954,6 +1954,7 @@ function renderSheet() {
 }
 
 function removeAsset(i) {
+  if (typeof edit !== 'undefined' && edit.on) leaveEdit();
   state.assets.splice(i, 1);
   if (typeof refreshColors === 'function') { refreshColors(); refreshMesures(); renderListing(); }
   if (state.selected >= state.assets.length) state.selected = state.assets.length - 1;
@@ -1963,6 +1964,9 @@ function removeAsset(i) {
 }
 
 function select(i) {
+  // Changer de photo en pleine correction laissait la barre d'édition ouverte
+  // sur une image qui n'était plus la bonne.
+  if (typeof edit !== 'undefined' && edit.on) leaveEdit();
   state.selected = i;
   syncControls();
   renderSheet();
@@ -1977,6 +1981,9 @@ let fullTimer = null;
 function drawViewer(fast) {
   const a = current();
   if (!a || !a.alpha) return;
+  // En correction, la vue appartient au pinceau : un curseur déplacé ne doit
+  // pas la remplacer par le rendu composé.
+  if (typeof edit !== 'undefined' && edit.on) { drawEdit(false); return; }
   // Après un mouvement, on repasse en qualité pleine dès que le doigt s'arrête.
   clearTimeout(fullTimer);
   if (fast) fullTimer = setTimeout(() => drawViewer(false), 180);
@@ -2724,7 +2731,6 @@ function lisser(prof, r) {
   return out;
 }
 
-const HAUTS = ['tshirt', 'chemise', 'pull', 'veste', 'manteau', 'robe'];
 const BAS = ['pantalon', 'jupe'];
 
 /**
@@ -2800,7 +2806,6 @@ function measureCm(px, refCle, refCm) {
    ============================================================= */
 const LS_KEY = 'propho.gemini.key';
 const LS_MODEL = 'propho.gemini.model';
-const DEFAULT_MODEL = '';   // vide : l'app interroge la clé pour savoir quoi utiliser
 const API_ROOT = 'https://generativelanguage.googleapis.com/v1beta';
 
 /** Modèles réellement disponibles pour cette clé, aujourd'hui. */
@@ -3685,6 +3690,7 @@ async function toggleArch(id, rec) {
   det.querySelector('[data-act="reprendre"]').addEventListener('click', () => {
     Object.assign(listing, rec.fields);
     writeFields();
+    refreshMesures();
     renderListing();
     closeArchive();
     toast('Fiche reprise. Rechargez les photos si besoin.');
@@ -3802,11 +3808,14 @@ setInterval(() => checkUpdate(false), UPDATE_INTERVAL);
 
 /* --- retour à l'accueil --- */
 function resetAll() {
+  if (edit.on) leaveEdit();
+  edit.undo = [];
   state.assets = [];
   state.selected = -1;
   Object.assign(listing, {
     cat: 'pull', type: '', brand: '', tier: 'milieu', size: '', mat: '',
-    cond: 'tres_bon', meas: '', details: '', colors: [], aiPhoto: false
+    cond: 'tres_bon', meas: '', details: '', colors: [], aiPhoto: false,
+    refCle: 'longueur', refCm: ''
   });
   writeFields();
   $('#aiNote').hidden = true;
