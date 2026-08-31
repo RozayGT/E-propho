@@ -1096,6 +1096,10 @@ function segment(buf, tolAdj) {
   };
 
   const minHole = n * 0.0004;
+  // Un trou est une poche à l'intérieur du vêtement, pas le vêtement lui-même.
+  // Sans cette borne, une pièce noire sur un drap clair — même teinte neutre,
+  // plus sombre — était prise pour une ombre du fond et entièrement effacée.
+  const maxHole = (n - filled) * 0.5;
   const comp = new Int32Array(n);
   const seenHole = new Uint8Array(n);
   for (let st = 0; st < n; st++) {
@@ -1147,7 +1151,7 @@ function segment(buf, tolAdj) {
     // « Uniformément » sombre : une étiquette dont le texte imprimé est entré
     // dans la zone a une moyenne basse mais un écart-type énorme.
     const sombre = moyReg < refY - 6 && stdReg < seuilStd;
-    const vraiTrou = cn >= minHole && (sombre || ecartType < seuilStd);
+    const vraiTrou = cn >= minHole && cn <= maxHole && (sombre || ecartType < seuilStd);
     if (vraiTrou) { for (let k = 0; k < cn; k++) bg[comp[k]] = 1; filled += cn; }
   }
 
@@ -1189,21 +1193,63 @@ function segment(buf, tolAdj) {
     for (const i of aRetirer) { bg[i] = 1; filled++; }
   }
 
-  const centre = centreFrac(bg, w, h);
+  let centre = centreFrac(bg, w, h);
+  let methode = 'couleur';
 
-  /* --- e. alpha : binaire → flou léger → modulation par la distance couleur --- */
+  /* --- e. secours par contours ---
+     Quand la couleur ne dit rien — un t-shirt blanc sur un drap blanc — il
+     reste le contour et l'ombre portée. On ne tente ce recours que si la
+     méthode couleur a échoué, et on ne le retient que s'il donne un résultat
+     plausible : sujet de taille raisonnable, centre du cadre occupé. */
+  {
+    const frac0 = filled / n;
+    const subj0 = 1 - frac0;
+    const ok0 = frac0 > 0.05 && frac0 < 0.982 && (centre < 0.35 || (subj0 < 0.12 && centre < 0.85));
+    if (!ok0) {
+      const e = segmentByEdges(buf);
+      if (e.frac > 0.10 && e.frac < 0.93 && e.centre < 0.35) {
+        bg.set(e.bg);
+        methode = 'contours';
+        centre = e.centre;
+        // On recompte, puis on renettoie les îlots que la diffusion a laissés.
+        filled = 0;
+        for (let i = 0; i < n; i++) if (bg[i]) filled++;
+        const vus = new Uint8Array(n);
+        for (let s0 = 0; s0 < n; s0++) {
+          if (bg[s0] || vus[s0]) continue;
+          let cn = 0; sp = 0; stack[sp++] = s0; vus[s0] = 1;
+          while (sp > 0) {
+            const i = stack[--sp]; comp[cn++] = i;
+            const x = i % w, y = (i / w) | 0;
+            const tr = (j) => { if (!bg[j] && !vus[j]) { vus[j] = 1; stack[sp++] = j; } };
+            if (x > 0)     tr(i - 1);
+            if (x < w - 1) tr(i + 1);
+            if (y > 0)     tr(i - w);
+            if (y < h - 1) tr(i + w);
+          }
+          if (cn < minBlob) { for (let k = 0; k < cn; k++) { bg[comp[k]] = 1; filled++; } }
+        }
+      }
+    }
+  }
+
+  /* --- f. alpha : binaire → flou léger → modulation par la distance couleur --- */
   const alpha = new Uint8ClampedArray(n);
   for (let i = 0; i < n; i++) alpha[i] = bg[i] ? 0 : 255;
   const rad = Math.max(1, Math.round(Math.min(w, h) / 640));
   boxBlurA(alpha, w, h, rad);
-  const t0 = tol * 0.5, t1 = tol * 1.35;
-  for (let i = 0; i < n; i++) {
-    const a = alpha[i];
-    if (a === 0 || a === 255) continue;
-    const p = i << 2;
-    const d = dist(data[p], data[p + 1], data[p + 2], ref.r, ref.g, ref.b);
-    const t = clamp((d - t0) / Math.max(1, t1 - t0), 0, 1);
-    alpha[i] = a * (t * t * (3 - 2 * t));
+  if (methode === 'couleur') {
+    // La modulation par la couleur n'a aucun sens si le fond a la teinte du
+    // sujet : sur la voie « contours », le masque adouci suffit.
+    const t0 = tol * 0.5, t1 = tol * 1.35;
+    for (let i = 0; i < n; i++) {
+      const a = alpha[i];
+      if (a === 0 || a === 255) continue;
+      const p = i << 2;
+      const d = dist(data[p], data[p + 1], data[p + 2], ref.r, ref.g, ref.b);
+      const t = clamp((d - t0) / Math.max(1, t1 - t0), 0, 1);
+      alpha[i] = a * (t * t * (3 - 2 * t));
+    }
   }
 
   const bgFrac = filled / n;
@@ -1212,7 +1258,93 @@ function segment(buf, tolAdj) {
   // quand le vêtement est simplement petit et bien au milieu.
   const subjFrac = 1 - bgFrac;
   const centreOk = centre < 0.35 || (subjFrac < 0.12 && centre < 0.85);
-  return { alpha, ref, tol, bgFrac, centre, confident: bgFrac > 0.05 && bgFrac < 0.982 && centreOk };
+  return { alpha, ref, tol, bgFrac, centre, methode, confident: bgFrac > 0.05 && bgFrac < 0.982 && centreOk };
+}
+
+/** Flou par boîte séparable, canal flottant. */
+function boxBlurF(a, w, h, r) {
+  if (r < 1) return;
+  const tmp = new Float32Array(a.length);
+  const win = 2 * r + 1;
+  for (let y = 0; y < h; y++) {
+    const o = y * w;
+    let sum = a[o] * (r + 1);
+    for (let x = 1; x <= r; x++) sum += a[o + Math.min(x, w - 1)];
+    for (let x = 0; x < w; x++) {
+      tmp[o + x] = sum / win;
+      sum += a[o + Math.min(x + r + 1, w - 1)] - a[o + Math.max(x - r, 0)];
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let sum = tmp[x] * (r + 1);
+    for (let y = 1; y <= r; y++) sum += tmp[Math.min(y, h - 1) * w + x];
+    for (let y = 0; y < h; y++) {
+      a[y * w + x] = sum / win;
+      sum += tmp[Math.min(y + r + 1, h - 1) * w + x] - tmp[Math.max(y - r, 0) * w + x];
+    }
+  }
+}
+
+/**
+ * Détourage par contours, pour quand la couleur ne dit rien : un vêtement
+ * blanc sur un drap blanc. On lisse fortement la luminance — les plis du drap
+ * s'effacent, l'ombre portée du vêtement survit — puis on diffuse depuis les
+ * bords en s'arrêtant sur les fortes pentes.
+ */
+function segmentByEdges(buf) {
+  const { w, h, data } = buf;
+  const n = w * h;
+  const lum = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const p = i << 2;
+    lum[i] = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
+  }
+  boxBlurF(lum, w, h, Math.max(2, Math.round(Math.min(w, h) / 110)));
+
+  const grad = new Float32Array(n);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      const gx = lum[i + 1] - lum[i - 1];
+      const gy = lum[i + w] - lum[i - w];
+      grad[i] = Math.abs(gx) + Math.abs(gy);
+    }
+  }
+
+  // Seuil au percentile : le contour du vêtement fait partie des pentes fortes.
+  const ech = [];
+  for (let i = 0; i < n; i += 13) ech.push(grad[i]);
+  ech.sort((a, b) => a - b);
+  const seuil = Math.max(1.2, ech[(ech.length * 0.86) | 0]);
+
+  const bg = new Uint8Array(n);
+  const st = new Int32Array(n);
+  let sp = 0, filled = 0;
+  const pousser = (i) => { if (!bg[i] && grad[i] < seuil) { bg[i] = 1; st[sp++] = i; filled++; } };
+  for (let x = 0; x < w; x++) { pousser(x); pousser((h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { pousser(y * w); pousser(y * w + w - 1); }
+  while (sp > 0) {
+    const i = st[--sp];
+    const x = i % w, y = (i / w) | 0;
+    if (x > 0)     pousser(i - 1);
+    if (x < w - 1) pousser(i + 1);
+    if (y > 0)     pousser(i - w);
+    if (y < h - 1) pousser(i + w);
+  }
+
+  // Le contour lui-même est resté « sujet » : on le rend au fond côté extérieur.
+  for (let tour = 0; tour < 3; tour++) {
+    const bord = [];
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      if (bg[i]) continue;
+      if (bg[i - 1] || bg[i + 1] || bg[i - w] || bg[i + w]) { if (grad[i] < seuil * 2.2) bord.push(i); }
+    }
+    if (!bord.length) break;
+    for (const i of bord) { bg[i] = 1; filled++; }
+  }
+
+  return { bg, frac: filled / n, centre: centreFrac(bg, w, h) };
 }
 
 /** Flou par boîte séparable sur un canal simple. */
@@ -1856,6 +1988,7 @@ async function recompute(asset) {
   asset.alpha = seg.alpha;
   asset.ref = seg.ref;
   asset.tol = seg.tol;
+  asset.methode = seg.methode;
   asset.confident = seg.confident;
   asset.bgFrac = seg.bgFrac;
   asset.an = analyze(asset.work, seg.alpha, seg.ref, seg.bgFrac);
@@ -1866,11 +1999,16 @@ async function recompute(asset) {
   asset.bboxScrub = bboxOf(asset.alphaScrub, asset.scrub.w, asset.scrub.h);
 
   asset.warnings = [];
+  const sujet = 1 - seg.bgFrac;
   if (!seg.confident) {
-    // Un détourage raté efface le vêtement : on préfère garder la photo entière
-    // et le dire, plutôt que de livrer un visuel vide.
-    if (!asset._touched) { asset.settings.removeBg = false; asset.settings.bg = 'none'; }
-    asset.warnings.push('Le fond ressemble trop au vêtement, il a été conservé. Reprenez la photo sur un drap uni plus clair, ou ajustez « Détourage » dans les réglages fins.');
+    // Un détourage raté efface le vêtement. Au-delà d'un certain point, on
+    // refuse de livrer une photo détruite même si l'utilisateur a choisi un
+    // fond : son choix ne vaut pas qu'on lui rende une image vide.
+    const desastre = sujet < 0.06 || sujet > 0.96;
+    if (desastre || !asset._touched) { asset.settings.removeBg = false; asset.settings.bg = 'none'; }
+    asset.warnings.push(desastre
+      ? 'Le vêtement et le fond ont la même couleur : le détourage a été abandonné et la photo gardée entière. Reprenez-la sur un fond contrasté — un drap foncé pour une pièce claire, clair pour une pièce sombre.'
+      : 'Le fond ressemble beaucoup au vêtement. Vérifiez le résultat, ajustez « Détourage » dans les réglages fins, ou reprenez la photo sur un fond contrasté.');
   }
   if (asset.an.meanY < 68) asset.warnings.push('Prise de vue sombre : la correction pousse le bruit. Refaites-la près d’une fenêtre si possible.');
   if (asset.an.sharp < 3.2) asset.warnings.push('Image un peu floue. La netteté ne rattrape qu’une partie.');
@@ -2084,7 +2222,7 @@ function drawReadout(a) {
   const W = ratio <= 1 ? Math.round(OUT_MAX * ratio) : OUT_MAX;
   const H = ratio <= 1 ? OUT_MAX : Math.round(OUT_MAX / ratio);
   const bits = [
-    `Fond <b>${s.removeBg && s.bg !== 'none' ? 'remplacé' : 'conservé'}</b>`,
+    `Fond <b>${s.removeBg && s.bg !== 'none' ? (a.methode === 'contours' ? 'remplacé (contours)' : 'remplacé') : 'conservé'}</b>`,
     `WB <b>${s.wb > 0 && a.an.wbSource !== 'aucune' ? a.an.kelvin + 'K' : 'non touchée'}</b>`,
     `Lumière <b>${(() => {
       const g = 1 + (a.an.expGain - 1) * (s.levels / 100);
