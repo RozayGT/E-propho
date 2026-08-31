@@ -3755,16 +3755,44 @@ function setVerState(cls, label, onClick) {
   el.style.cursor = onClick ? 'pointer' : 'default';
 }
 
+const LS_CIBLE = 'propho.update.cible';
+
 async function applyUpdate(v) {
   if (state.assets.length && !confirm('Le rechargement videra la planche contact. Continuer ?')) return;
+  lsSet(LS_CIBLE, v);
   try {
     if (window.caches) { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); }
   } catch (e) { /* sans importance */ }
   try {
+    // On ne désinscrit plus le worker : on lui demande de prendre la main tout
+    // de suite. Le désinscrire laissait la page sans contrôleur, et la version
+    // suivante repartait du cache HTTP.
     const regs = await navigator.serviceWorker?.getRegistrations?.();
-    if (regs) await Promise.all(regs.map(r => r.unregister()));
+    if (regs) {
+      for (const r of regs) {
+        try { await r.update(); } catch (e) { /* hors ligne */ }
+        (r.waiting || r.installing || r.active)?.postMessage('skip-waiting');
+      }
+    }
   } catch (e) { /* sans importance */ }
-  location.replace(location.pathname + '?v=' + encodeURIComponent(v));
+  location.replace(location.pathname + '?v=' + encodeURIComponent(v) + '&t=' + Date.now());
+}
+
+/**
+ * Si un rechargement n'a pas abouti, on le dit au lieu de reproposer
+ * indéfiniment le même bouton.
+ */
+function verifierCible() {
+  const cible = lsGet(LS_CIBLE);
+  if (!cible) return false;
+  if (cmpVer(APP_VERSION, cible) >= 0) { lsSet(LS_CIBLE, ''); return false; }
+  setVerState('avail', `mise à jour bloquée · toucher pour l’aide`, () => {
+    lsSet(LS_CIBLE, '');
+    alert('La version ' + cible + ' n’a pas pu se charger.\n\n'
+      + 'Sur l’écran d’accueil : fermez complètement Propho (balayage vers le haut), puis rouvrez-la.\n\n'
+      + 'Si le problème persiste : Réglages iOS → Safari → Effacer historique et données, puis rouvrez l’app.');
+  });
+  return true;
 }
 
 async function checkUpdate(force) {
@@ -3772,6 +3800,7 @@ async function checkUpdate(force) {
   const now = Date.now();
   if (!force && now - lastCheck < UPDATE_INTERVAL) return;
   lastCheck = now;
+  if (verifierCible()) return;
   try {
     const res = await fetch('version.json?t=' + now, { cache: 'no-store' });
     if (!res.ok) throw new Error(res.status);
